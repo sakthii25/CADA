@@ -1,9 +1,11 @@
+module Diff where
 import System.Process
 import System.Directory
 import System.IO
 import Control.Exception
 import Data.List
 import Control.Monad
+import Fdep.Group (run)
 
 cloneRepo :: String -> FilePath -> IO ()
 cloneRepo repoUrl localPath = do

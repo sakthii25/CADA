@@ -29,6 +29,7 @@ executable cada
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base, haskell-tools-parser
+    build-depends:    base, haskell-tools-parser, fdep,process,directory
     hs-source-dirs:   app
+    other-modules: Diff
     default-language: Haskell2010

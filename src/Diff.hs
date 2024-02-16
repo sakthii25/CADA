@@ -1,12 +1,13 @@
 module Diff where
+    
 import System.Process
 import System.Directory
 import System.IO
 import Control.Exception
 import Data.List
 import Control.Monad
-import Fdep.Group (run)
-
+import Fdep.Group as FDep
+ 
 cloneRepo :: String -> FilePath -> IO ()
 cloneRepo repoUrl localPath = do
     exists <- doesPathExist localPath
@@ -27,13 +28,14 @@ checkoutAndReadFile :: String -> FilePath -> IO String
 checkoutAndReadFile commit filePath = do
     let updatedFilePath = drop (length localRepoPath) filePath
         command = "git checkout " <> commit <> " -- " <> updatedFilePath
-    _ <- createProcess (shell command) {cwd = Just localRepoPath, std_out = CreatePipe }
+    _ <- createProcess (shell command) {std_out = CreatePipe }
     content <- readFile updatedFilePath
     putStrLn $ "Content:\n" <> content
     return content
 
 main :: IO ()
 main = do
+    FDep.run
     cloneRepo repoUrl localRepoPath
     changedFiles <- getChangedFiles oldCommit newCommit localRepoPath
     forM_ changedFiles $ \filePath -> do

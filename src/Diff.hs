@@ -28,8 +28,9 @@ checkoutAndReadFile :: String -> FilePath -> IO String
 checkoutAndReadFile commit filePath = do
     let updatedFilePath = drop (length localRepoPath) filePath
         command = "git checkout " <> commit <> " -- " <> updatedFilePath
-    _ <- createProcess (shell command) {std_out = CreatePipe }
+    (_, _, _, process) <- createProcess (shell command) {std_out = CreatePipe}
     content <- readFile updatedFilePath
+    terminateProcess process
     putStrLn $ "Content:\n" <> content
     return content
 

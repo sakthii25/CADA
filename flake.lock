@@ -266,17 +266,17 @@
         "references": "references"
       },
       "locked": {
-        "lastModified": 1704959622,
-        "narHash": "sha256-7krQ2pFO3m6BF2qw07EH+Cj9JXjaF1YAnN1nMvv09zA=",
+        "lastModified": 1703762739,
+        "narHash": "sha256-feDNoiWLY3Q2mIpyH+q1ZDfO01WGI7jxfi1Jq03E7tY=",
         "owner": "eswar2001",
         "repo": "haskell-tools",
-        "rev": "59e6168555d466237e27aabc794d5f4040b5ca8b",
+        "rev": "de1208e5692004d62960dd30362b0fb430d8f1de",
         "type": "github"
       },
       "original": {
         "owner": "eswar2001",
         "repo": "haskell-tools",
-        "rev": "59e6168555d466237e27aabc794d5f4040b5ca8b",
+        "rev": "de1208e5692004d62960dd30362b0fb430d8f1de",
         "type": "github"
       }
     },

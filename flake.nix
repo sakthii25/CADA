@@ -8,7 +8,7 @@
     systems.url = "github:nix-systems/default";
     references.url = "github:eswar2001/references/35912f3cc72b67fa63a8d59d634401b79796469e";
     references.flake = true;
-    haskell-tools.url = "github:eswar2001/haskell-tools/59e6168555d466237e27aabc794d5f4040b5ca8b";
+    haskell-tools.url = "github:eswar2001/haskell-tools/de1208e5692004d62960dd30362b0fb430d8f1de";
   };
   outputs = inputs @ {
     self,
@@ -16,7 +16,7 @@
     flake-parts,
     ...
   }:
-    flake-parts.lib.mkFlake { inputs = inputs // { inherit (inputs) nixpkgs nixpkgs-latest; }; } {
+    flake-parts.lib.mkFlake { inputs = inputs // { inherit (inputs) nixpkgs; }; } {
       systems = import inputs.systems;
       imports = [inputs.haskell-flake.flakeModule];
 
@@ -32,7 +32,22 @@
           packages = {
             references.source = inputs.references;
             classyplate.source = inputs.classyplate;
-            haskell-tools-parser.source = inputs.haskell-tools + /src/parser/haskell-tools-parser.cabal;
+            haskell-tools-parser.source = inputs.haskell-tools + /src/parser;
+            haskell-tools-backend-ghc.source = inputs.haskell-tools + /src/backend-ghc;
+            haskell-tools-ast.source = inputs.haskell-tools + /src/ast;
+            haskell-tools-rewrite.source = inputs.haskell-tools + /src/rewrite;
+            haskell-tools-prettyprint.source = inputs.haskell-tools + /src/prettyprint;
+            haskell-tools-refactor.source = inputs.haskell-tools + /src/refactor;
+            haskell-tools-builtin-refactorings.source = inputs.haskell-tools + /src/builtin-refactorings;
+            haskell-tools-demo.source = inputs.haskell-tools + /demo;
+          };
+          settings = {
+            haskell-tools-builtin-refactorings = {
+              check = false;
+            };
+            haskell-tools-daemon = {
+              check = false;
+            };
           };
         };
         packages.default =  self'.packages.cada;

@@ -65,8 +65,8 @@ run = do
             checkoutToBranch branchName
             maybePreviousAST  <- zip changedModules <$> getAstHashMap changedFiles localRepoPath
             let listOfAstTuple = zip maybeCurrentAST maybePreviousAST
-                listOfFunMod   = map (\((moduleName, mCurrentAST), (_, mPreviousAST)) -> (moduleName, getAllFunctions mCurrentAST, getAllFunctions mPreviousAST)) listOfAstTuple -- [([F1],[F1']),([F2],[F2']),([F3],[F3'])]
-                finalList      = map (\(moduleName, currentFns, previousFns) -> (moduleName, currentFns, previousFns, HM.keys $ HM.difference (HM.fromList currentFns) (HM.fromList previousFns))) listOfFunMod -- [[]]
+                listOfFunMod   = map (\((moduleName, mCurrentAST), (_, mPreviousAST)) -> (moduleName, getAllFunctions mCurrentAST, getAllFunctions mPreviousAST)) listOfAstTuple
+                finalList      = map (\(moduleName, currentFns, previousFns) -> (moduleName, currentFns, previousFns, HM.keys $ HM.difference (HM.fromList currentFns) (HM.fromList previousFns))) listOfFunMod
                 finalResult    = map (\(moduleName, currentFns, previousFns, removedFns) -> getFunctionModified (HM.fromList currentFns) (HM.fromList previousFns) removedFns moduleName) finalList
             print (show finalResult)
             pure ()
@@ -92,5 +92,3 @@ run = do
                             Just newVal -> if (val == newVal) then acc else FunctionModified dx (k : mx) ax moduleName
                             Nothing -> FunctionModified (k : dx) mx ax moduleName) (FunctionModified [] [] added moduleName) oldFuns
             y
-
-    -- git show origin/main | grep -E "commit [a-z0-9 ]{40}" | awk  '{print $2}'

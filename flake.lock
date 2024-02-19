@@ -372,17 +372,17 @@
         "references": "references_2"
       },
       "locked": {
-        "lastModified": 1703762739,
-        "narHash": "sha256-feDNoiWLY3Q2mIpyH+q1ZDfO01WGI7jxfi1Jq03E7tY=",
-        "owner": "eswar2001",
+        "lastModified": 1708370059,
+        "narHash": "sha256-bdEj53YJHRlvTF74LYf4Im6vFj20cO5FQi69LwjazXY=",
+        "owner": "juspay",
         "repo": "haskell-tools",
-        "rev": "de1208e5692004d62960dd30362b0fb430d8f1de",
+        "rev": "e6459730e3cfca645534566db2f934b646ad4d7e",
         "type": "github"
       },
       "original": {
-        "owner": "eswar2001",
+        "owner": "juspay",
         "repo": "haskell-tools",
-        "rev": "de1208e5692004d62960dd30362b0fb430d8f1de",
+        "rev": "e6459730e3cfca645534566db2f934b646ad4d7e",
         "type": "github"
       }
     },
@@ -579,11 +579,11 @@
     },
     "nixpkgs_4": {
       "locked": {
-        "lastModified": 1708001613,
-        "narHash": "sha256-woOmAXW05XnqlLn7dKzCkRAEOSOdA/Z2ndVvKcjid94=",
+        "lastModified": 1686582075,
+        "narHash": "sha256-vtflsfKkHtF8IduxDNtbme4cojiqvlvjp5QNYhvoHXc=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "085589047343aad800c4d305cf7b98e8a3d51ae2",
+        "rev": "7e63eed145566cca98158613f3700515b4009ce3",
         "type": "github"
       },
       "original": {

@@ -61,11 +61,14 @@ run = do
             FDep.run
             cloneRepo repoUrl localRepoPath
             changedFiles <- getChangedFiles branchName currentCommit localRepoPath
-            print (show changedFiles)
+            let modifiedFiles = filter (\x -> (".hs" `isSuffixOf` x)) changedFiles
+                modifiedModules = map extractModuleName modifiedFiles
+            print ("modified files: " <> show modifiedFiles)
+            print ("modified modules: " <> show modifiedModules)
             checkoutToBranch currentCommit
-            maybeCurrentAST   <- mkAst changedFiles localRepoPath
+            maybeCurrentAST   <- mkAst modifiedFiles localRepoPath
             checkoutToBranch branchName
-            maybePreviousAST  <- mkAst changedFiles localRepoPath
+            maybePreviousAST  <- mkAst modifiedFiles localRepoPath
             let listOfAstTuple = zip maybeCurrentAST maybePreviousAST
                 listOfFunMod   = map (\((moduleName, mCurrentAST), (_, mPreviousAST)) -> (moduleName, getAllFunctions mCurrentAST, getAllFunctions mPreviousAST)) listOfAstTuple
                 finalList      = map (\(moduleName, currentFns, previousFns) -> (moduleName, currentFns, previousFns, HM.keys $ HM.difference (HM.fromList currentFns) (HM.fromList previousFns))) listOfFunMod

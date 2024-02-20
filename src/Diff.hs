@@ -2,22 +2,23 @@
 
 module Diff where
 
-import System.Process
+import Control.Concurrent.Async (mapConcurrently)
+import Control.Exception
+import Control.Monad
+import qualified Data.HashMap.Strict as HM
+import Data.List
+import qualified Data.Text as T
+import Fdep.Group as FDep
+import GHC.Hs.Extension
+import qualified Language.Haskell.Tools.AST as AST
+import Language.Haskell.Tools.Parser.FlowChange (compareASTForFuns, getAllFunctions, addFunctionModifed, FunctionModified(..))
+import Language.Haskell.Tools.Parser.ParseModule (moduleParser)
+import Language.Haskell.Tools.AST.Ann
 import System.Directory
 import System.Environment (getArgs)
 import System.IO
-import Control.Exception
-import Data.List
-import Control.Monad
-import Fdep.Group as FDep
-import Language.Haskell.Tools.Parser.FlowChange (compareASTForFuns, getAllFunctions, addFunctionModifed, FunctionModified(..))
+import System.Process
 import Text.Regex.Posix
-import Language.Haskell.Tools.Parser.ParseModule (moduleParser)
-import Control.Concurrent.Async (mapConcurrently)
-import qualified Language.Haskell.Tools.AST as AST
-import Language.Haskell.Tools.AST.Ann
-import GHC.Hs.Extension
-import qualified Data.HashMap.Strict as HM
 
 extractModuleName :: FilePath -> String
 extractModuleName filePath =
@@ -34,8 +35,10 @@ cloneRepo repoUrl localPath = do
 getChangedFiles :: String -> String -> FilePath -> IO [FilePath]
 getChangedFiles branchName newCommit localPath = do
     setCurrentDirectory localPath
-    result <- readProcess "git" ["diff", "--name-only", branchName, newCommit] ""
-    return $ lines result
+    readProcess "git" ["checkout", branchName] ""
+    commit <- readProcess "git" ["rev-parse", branchName] ""
+    result <- readProcess "git" ["diff", "--name-only", (T.unpack $ T.stripEnd (T.pack commit)), newCommit] ""
+    pure $ lines result
 
 checkoutToBranch :: String -> IO ()
 checkoutToBranch branch = do

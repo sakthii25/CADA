@@ -40,19 +40,6 @@ getChangedFiles branchName newCommit localPath = do
     result <- readProcess "git" ["diff", "--name-only", (T.unpack $ T.stripEnd (T.pack commit)), newCommit] ""
     pure $ lines result
 
-checkoutToBranch :: String -> IO ()
-checkoutToBranch branch = do
-    let command = "git checkout " <> branch
-    (_, _, _, process) <- createProcess (shell command) {std_out = CreatePipe}
-    terminateProcess process
-
--- [(moduleName, cFuncs, pFuncs)]
-
--- [(moduleName, cFuncs, pFuncs, rFuncs)]
-
--- getFunctionModified
--- FunctionModified deleted modified removed moduleName
-
 run :: IO ()
 run = do
     x <- getArgs
@@ -61,15 +48,14 @@ run = do
             FDep.run
             cloneRepo repoUrl localRepoPath
             changedFiles <- getChangedFiles branchName currentCommit localRepoPath
-            let modifiedFiles = filter (\x -> (".hs" `isSuffixOf` x)) changedFiles
+            let modifiedFiles   = filter (\x -> (".hs" `isSuffixOf` x)) changedFiles
                 modifiedModules = map extractModuleName modifiedFiles
             print ("modified files: " <> show modifiedFiles)
             print ("modified modules: " <> show modifiedModules)
-            checkoutToBranch currentCommit
-            maybeCurrentAST   <- mkAst modifiedFiles localRepoPath
-            checkoutToBranch branchName
             maybePreviousAST  <- mkAst modifiedFiles localRepoPath
-            let listOfAstTuple = zip maybeCurrentAST maybePreviousAST
+            _                 <- readProcess "git" ["checkout", currentCommit] ""
+            maybeCurrentAST   <- mkAst modifiedFiles localRepoPath
+            let listOfAstTuple = zip maybePreviousAST maybeCurrentAST
                 listOfFunMod   = map (\((moduleName, mCurrentAST), (_, mPreviousAST)) -> (moduleName, getAllFunctions mCurrentAST, getAllFunctions mPreviousAST)) listOfAstTuple
                 finalList      = map (\(moduleName, currentFns, previousFns) -> (moduleName, currentFns, previousFns, HM.keys $ HM.difference (HM.fromList currentFns) (HM.fromList previousFns))) listOfFunMod
                 finalResult    = map (\(moduleName, currentFns, previousFns, removedFns) -> getFunctionModified (HM.fromList currentFns) (HM.fromList previousFns) removedFns moduleName) finalList
@@ -93,13 +79,13 @@ run = do
             case result of
                 Right val -> pure $ Just val
                 Left err  -> do
-                    print err
+                    print ("Error Parsing module. Error is: " <> show err)
                     pure Nothing
 
         getFunctionModified :: (HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage)) -> (HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage)) -> [String] -> String -> FunctionModified
-        getFunctionModified newFuns oldFuns added moduleName = do
-            let !y = HM.foldlWithKey (\acc@(FunctionModified dx mx ax _) k val ->
+        getFunctionModified newFuns oldFuns removed moduleName = do
+            let !y = HM.foldlWithKey (\acc k val ->
                         case HM.lookup k newFuns of
-                            Just newVal -> if (val == newVal) then acc else FunctionModified dx (k : mx) ax moduleName
-                            Nothing -> FunctionModified (k : dx) mx ax moduleName) (FunctionModified [] [] added moduleName) oldFuns
+                            Just newVal -> if ((show val) == (show newVal)) then acc else addFunctionModifed acc (FunctionModified [] [k] [] moduleName)
+                            Nothing -> addFunctionModifed acc (FunctionModified [k] [] [] moduleName) ) (FunctionModified [] [] removed moduleName) oldFuns
             y

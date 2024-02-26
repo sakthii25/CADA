@@ -6,6 +6,7 @@ import Control.Concurrent.Async (mapConcurrently)
 import Control.Exception
 import Control.Monad
 import qualified Data.HashMap.Strict as HM
+import Data.Maybe (catMaybes)
 import Data.List
 import qualified Data.Text as T
 import Fdep.Group as FDep
@@ -20,10 +21,11 @@ import System.IO
 import System.Process
 import Text.Regex.Posix
 
-extractModuleName :: FilePath -> String
+extractModuleName :: FilePath -> Maybe String
 extractModuleName filePath =
-    let (_, _, _, [moduleName]) = filePath =~ ".*src/(.*).hs" :: (String, String, String, [String])
-    in map (\c -> if c == '/' then '.' else c) moduleName
+    case filePath =~ ".*src/(.*).hs" :: (String, String, String, [String]) of
+        (_, _, _, [moduleName]) -> Just $ map (\c -> if c == '/' then '.' else c) moduleName
+        _                       -> Nothing
 
 cloneRepo :: String -> FilePath -> IO ()
 cloneRepo repoUrl localPath = do
@@ -48,13 +50,12 @@ run = do
             FDep.run
             cloneRepo repoUrl localRepoPath
             changedFiles <- getChangedFiles branchName currentCommit localRepoPath
-            let modifiedFiles   = filter (\x -> (".hs" `isSuffixOf` x)) changedFiles
-                modifiedModules = map extractModuleName modifiedFiles
-            print ("modified files: " <> show modifiedFiles)
+            let modifiedModules = catMaybes $ map extractModuleName changedFiles
+            print ("modified files: " <> show changedFiles)
             print ("modified modules: " <> show modifiedModules)
-            maybePreviousAST  <- mkAst modifiedFiles localRepoPath
+            maybePreviousAST  <- mkAst modifiedModules localRepoPath
             _                 <- readProcess "git" ["checkout", currentCommit] ""
-            maybeCurrentAST   <- mkAst modifiedFiles localRepoPath
+            maybeCurrentAST   <- mkAst modifiedModules localRepoPath
             let listOfAstTuple = zip maybePreviousAST maybeCurrentAST
                 listOfFunMod   = map (\((moduleName, mCurrentAST), (_, mPreviousAST)) -> (moduleName, getAllFunctions mCurrentAST, getAllFunctions mPreviousAST)) listOfAstTuple
                 finalList      = map (\(moduleName, currentFns, previousFns) -> (moduleName, currentFns, previousFns, HM.keys $ HM.difference (HM.fromList currentFns) (HM.fromList previousFns))) listOfFunMod
@@ -64,22 +65,22 @@ run = do
         _ -> fail $ "can't proceed please pass all the arguments in the order of repoUrl localPath oldCommit newCommit but got: " <> show x
 
     where
-        mkAst :: [FilePath] -> FilePath -> IO [(String, (Maybe (Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))]
-        mkAst filePaths localRepoPath =
-            mapConcurrently (\f -> mkModuleNameAndAstTuple f localRepoPath) filePaths
+        mkAst :: [String] -> FilePath -> IO [(String, (Maybe (Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))]
+        mkAst modifiedModules localRepoPath =
+            mapConcurrently (\m -> mkModuleNameAndAstTuple m localRepoPath) modifiedModules
 
-        mkModuleNameAndAstTuple :: FilePath -> FilePath -> IO (String, (Maybe (Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
-        mkModuleNameAndAstTuple filePath localRepoPath = do
-            ast <- processFile filePath localRepoPath
-            pure (extractModuleName filePath, ast)
+        mkModuleNameAndAstTuple :: String -> FilePath -> IO (String, (Maybe (Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
+        mkModuleNameAndAstTuple moduleName localRepoPath = do
+            ast <- processFile moduleName localRepoPath
+            pure (moduleName, ast)
 
-        processFile :: FilePath -> FilePath -> IO (Maybe ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
-        processFile filePath localRepoPath = do
-            result <- try (moduleParser (localRepoPath <> "/src") (extractModuleName filePath)) :: IO (Either SomeException ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
+        processFile :: String -> FilePath -> IO (Maybe ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
+        processFile moduleName localRepoPath = do
+            result <- try (moduleParser (localRepoPath <> "/src") moduleName) :: IO (Either SomeException ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
             case result of
                 Right val -> pure $ Just val
                 Left err  -> do
-                    print ("Error Parsing module. Error is: " <> show err)
+                    print ("Error Parsing module. Error is" <> show err)
                     pure Nothing
 
         getFunctionModified :: (HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage)) -> (HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage)) -> [String] -> String -> FunctionModified

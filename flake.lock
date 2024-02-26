@@ -86,6 +86,7 @@
       },
       "original": {
         "owner": "eswar2001",
+        "ref": "main",
         "repo": "fdep",
         "type": "github"
       }
@@ -372,17 +373,17 @@
         "references": "references_2"
       },
       "locked": {
-        "lastModified": 1708459189,
-        "narHash": "sha256-T+04hq1MmS1/2IXiUq17zSqAEKoZy1xNkqmYQjhgw7g=",
+        "lastModified": 1708935442,
+        "narHash": "sha256-KMkP6fHKXNQZZJNA3wLsU/lleN8zmUSdXSYG2fJkSJ4=",
         "owner": "juspay",
         "repo": "haskell-tools",
-        "rev": "ea937346f5fe4f507787ec56f737ca8e90e1b561",
+        "rev": "c8e55ec3e9cae213d6dfa6f0f19fa7574baa91b6",
         "type": "github"
       },
       "original": {
         "owner": "juspay",
         "repo": "haskell-tools",
-        "rev": "ea937346f5fe4f507787ec56f737ca8e90e1b561",
+        "rev": "c8e55ec3e9cae213d6dfa6f0f19fa7574baa91b6",
         "type": "github"
       }
     },

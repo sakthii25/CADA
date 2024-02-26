@@ -2,6 +2,7 @@
 
 module Diff where
 
+import Data.Aeson
 import Control.Concurrent.Async (mapConcurrently)
 import Control.Exception
 import Control.Monad
@@ -20,6 +21,7 @@ import System.Environment (getArgs)
 import System.IO
 import System.Process
 import Text.Regex.Posix
+import Data.ByteString.Lazy.UTF8 (toString)
 
 extractModuleName :: FilePath -> Maybe String
 extractModuleName filePath =
@@ -60,7 +62,9 @@ run = do
                 listOfFunMod   = map (\((moduleName, mCurrentAST), (_, mPreviousAST)) -> (moduleName, getAllFunctions mCurrentAST, getAllFunctions mPreviousAST)) listOfAstTuple
                 finalList      = map (\(moduleName, currentFns, previousFns) -> (moduleName, currentFns, previousFns, HM.keys $ HM.difference (HM.fromList currentFns) (HM.fromList previousFns))) listOfFunMod
                 finalResult    = map (\(moduleName, currentFns, previousFns, removedFns) -> getFunctionModified (HM.fromList currentFns) (HM.fromList previousFns) removedFns moduleName) finalList
-            print (show finalResult)
+                result         = toString $ encode finalResult
+            writeFile "funs_modified.txt" result
+            print result
             pure ()
         _ -> fail $ "can't proceed please pass all the arguments in the order of repoUrl localPath oldCommit newCommit but got: " <> show x
 

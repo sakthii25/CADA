@@ -22,7 +22,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v3
         with:
-          name: fdep-ubuntu
+          name: cada-ubuntu
           path: result/bin/cada
 
   build-mac:
@@ -37,5 +37,5 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v3
         with:
-          name: fdep-mac
+          name: cada-mac
           path: result/bin/cada

@@ -25,7 +25,7 @@ import Data.ByteString.Lazy.UTF8 (toString)
 
 extractModuleName :: FilePath -> Maybe String
 extractModuleName filePath =
-    case filePath =~ ".*src/(.*).hs" :: (String, String, String, [String]) of
+    case filePath =~ ".*src-generated/(.*).hs" :: (String, String, String, [String]) of
         (_, _, _, [moduleName]) -> Just $ map (\c -> if c == '/' then '.' else c) moduleName
         _                       -> Nothing
 
@@ -80,7 +80,7 @@ run = do
 
         processFile :: String -> FilePath -> IO (Maybe ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
         processFile moduleName localRepoPath = do
-            result <- try (moduleParser (localRepoPath <> "/src") moduleName) :: IO (Either SomeException ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
+            result <- try (moduleParser (localRepoPath <> "/src-generated") moduleName) :: IO (Either SomeException ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
             case result of
                 Right val -> pure $ Just val
                 Left err  -> do

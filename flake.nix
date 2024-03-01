@@ -9,7 +9,7 @@
     references.url = "github:eswar2001/references/35912f3cc72b67fa63a8d59d634401b79796469e";
     references.flake = true;
     haskell-tools.url = "github:juspay/haskell-tools/c8e55ec3e9cae213d6dfa6f0f19fa7574baa91b6";
-    fdep.url = "github:eswar2001/fdep/232ebe08d83077124e8a9f4610e42f99ae875837";
+    fdep.url = "github:eswar2001/fdep/4e32101a9755c9d2829e3e806817300b039773cd";
   };
   outputs = inputs @ {
     self,

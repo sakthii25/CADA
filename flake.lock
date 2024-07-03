@@ -77,17 +77,16 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1709274454,
-        "narHash": "sha256-oNjMHOO6Z85EWhI02bkf5BjFYcyP1jYVjDOxMgrme5Q=",
+        "lastModified": 1717583882,
+        "narHash": "sha256-+mAgVr/noyyki3Zx7NFMF63g07ykNsek4iLX8zBY08E=",
         "owner": "eswar2001",
         "repo": "fdep",
-        "rev": "4e32101a9755c9d2829e3e806817300b039773cd",
+        "rev": "7d6c6ff4f4b8651d451f242c5b9280fdd145a9ce",
         "type": "github"
       },
       "original": {
         "owner": "eswar2001",
         "repo": "fdep",
-        "rev": "4e32101a9755c9d2829e3e806817300b039773cd",
         "type": "github"
       }
     },

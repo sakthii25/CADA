@@ -22,6 +22,7 @@ import System.IO
 import System.Process
 import Text.Regex.Posix
 import Data.ByteString.Lazy.UTF8 (toString)
+import Data.List.Extra (splitOn)
 
 extractModuleNames :: [FilePath] -> [(String, String)]
 extractModuleNames filePaths =
@@ -30,14 +31,15 @@ extractModuleNames filePaths =
     where
         extractModNameAndPath :: FilePath -> (String, String)
         extractModNameAndPath filePath = do
-            case filePath =~ ".*src-generated/(.*).hs" :: (String, String, String, [String]) of
-                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, "src-generated")
+            let newPath = if "euler-x" `isInfixOf` filePath then "euler-x/" else if "oltp" `isInfixOf` filePath then "oltp/" else ""
+            case filePath =~ ".*/src-generated/(.*).hs" :: (String, String, String, [String]) of
+                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated")
                 _                    ->
                     case filePath =~ ".*src/(.*).hs" :: (String, String, String, [String]) of
-                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, "src")
+                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName,newPath ++ "src")
                         _                    -> 
                             case filePath =~ ".*src-extras/(.*).hs" :: (String, String, String, [String]) of
-                                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, "src-extras")
+                                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-extras")
                                 _                    -> ("NA", "NA")
 
 cloneRepo :: String -> FilePath -> IO ()
@@ -59,9 +61,9 @@ run :: IO ()
 run = do
     x <- getArgs
     case x of
-        [repoUrl, localRepoPath, branchName, currentCommit] -> do
-            FDep.run
-            cloneRepo repoUrl localRepoPath
+        [repoUrl, localRepoPath, branchName, currentCommit, path] -> do
+            FDep.run (Just path)
+            cloneRepo repoUrl (localRepoPath)
             changedFiles <- getChangedFiles branchName currentCommit localRepoPath
             let modifiedModsAndPaths = extractModuleNames changedFiles
             print ("modified files: " <> show changedFiles)
@@ -91,6 +93,7 @@ run = do
         processFile :: String -> String -> FilePath -> IO (Maybe ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
         processFile moduleName path localRepoPath = do
             result <- try (moduleParser (localRepoPath <> path) moduleName) :: IO (Either SomeException ((Ann AST.UModule (Dom GhcPs) SrcTemplateStage)))
+            print $ localRepoPath <> path
             case result of
                 Right val -> pure $ Just val
                 Left err  -> do

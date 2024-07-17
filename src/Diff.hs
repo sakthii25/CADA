@@ -10,7 +10,6 @@ import qualified Data.HashMap.Strict as HM
 import Data.Maybe (catMaybes)
 import Data.List
 import qualified Data.Text as T
-import Fdep.Group as FDep
 import GHC.Hs.Extension
 import qualified Language.Haskell.Tools.AST as AST
 import Language.Haskell.Tools.Parser.FlowChange (compareASTForFuns, getAllFunctions, addFunctionModifed, FunctionModified(..))
@@ -62,7 +61,6 @@ run = do
     x <- getArgs
     case x of
         [repoUrl, localRepoPath, branchName, currentCommit, path] -> do
-            FDep.run (Just path)
             cloneRepo repoUrl (localRepoPath)
             changedFiles <- getChangedFiles branchName currentCommit localRepoPath
             let modifiedModsAndPaths = extractModuleNames changedFiles

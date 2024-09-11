@@ -31,15 +31,18 @@ extractModuleNames filePaths =
         extractModNameAndPath :: FilePath -> (String, String)
         extractModNameAndPath filePath = do
             let newPath = if "euler-x" `isInfixOf` filePath then "euler-x/" else if "oltp" `isInfixOf` filePath then "oltp/" else ""
-            case filePath =~ ".*/src-generated/(.*).hs" :: (String, String, String, [String]) of
+            case filePath =~ "src-generated/(.*).hs" :: (String, String, String, [String]) of
                 (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated")
                 _                    ->
-                    case filePath =~ ".*src/(.*).hs" :: (String, String, String, [String]) of
-                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName,newPath ++ "src")
-                        _                    -> 
-                            case filePath =~ ".*src-extras/(.*).hs" :: (String, String, String, [String]) of
-                                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-extras")
-                                _                    -> ("NA", "NA")
+                    case filePath =~ ".*/src-generated/(.*).hs" :: (String, String, String, [String]) of
+                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated")
+                        _                    ->
+                            case filePath =~ ".*src/(.*).hs" :: (String, String, String, [String]) of
+                                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName,newPath ++ "src")
+                                _                    -> 
+                                    case filePath =~ ".*src-extras/(.*).hs" :: (String, String, String, [String]) of
+                                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-extras")
+                                        _                    -> ("NA", "NA")
 
 cloneRepo :: String -> FilePath -> IO ()
 cloneRepo repoUrl localPath = do

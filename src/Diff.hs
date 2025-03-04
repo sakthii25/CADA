@@ -33,11 +33,21 @@ import Control.Reference ((^.), (!~), biplateRef,(^?))
 extractModuleNames :: [FilePath] -> [(String, String)]
 extractModuleNames filePaths =
     filter (\(m, _) -> m /= "NA") (map (\x -> extractModNameAndPath x) filePaths)
-
     where
         extractModNameAndPath :: FilePath -> (String, String)
         extractModNameAndPath filePath = do
-            let newPath = if "euler-x" `isInfixOf` filePath then "euler-x/" else if "oltp" `isInfixOf` filePath then "oltp/" else ""
+            let newPath =
+                    if "euler-x" `isInfixOf` filePath 
+                        then "euler-x/" 
+                        else if "oltp" `isInfixOf` filePath 
+                            then "oltp/" 
+                        else if "dbTypes" `isInfixOf` filePath 
+                            then "dbTypes/" 
+                        else if "ecPrelude" `isInfixOf` filePath 
+                            then "ecPrelude/"
+                        else if "euler-api-decider" `isInfixOf` filePath 
+                            then "euler-api-decider/"
+                        else ""
             case filePath =~ "src-generated/(.*).hs" :: (String, String, String, [String]) of
                 (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated")
                 _                    ->
@@ -183,14 +193,14 @@ run = do
             
             -- Process differences for functions, types, and instances
             let listOfAstTuple = zip maybePreviousAST maybeCurrentAST
-                listOfChanges  = map (\((moduleName, mPreviousAST), (_, mCurrentAST)) -> 
+            listOfChanges <- mapM (\((moduleName, mPreviousAST), (_, mCurrentAST)) -> do
                                     let currentFunctions = maybe [] getAllFunctions mCurrentAST
                                         previousFunctions = maybe [] getAllFunctions mPreviousAST
                                         currentTypes = maybe [] getAllTypeDecls mCurrentAST
                                         previousTypes = maybe [] getAllTypeDecls mPreviousAST
                                         currentInstances = maybe [] getAllInstances mCurrentAST
                                         previousInstances = maybe [] getAllInstances mPreviousAST
-                                    in (moduleName, 
+                                    pure $ (moduleName, 
                                         HM.fromList currentFunctions, 
                                         HM.fromList previousFunctions,
                                         HM.fromList currentTypes,
@@ -200,7 +210,7 @@ run = do
                                  listOfAstTuple
                 
                 -- Process function changes for funs_modified.json (unchanged)
-                funChanges = map (\(moduleName, currentFns, previousFns, _, _, _, _) -> 
+            let funChanges = map (\(moduleName, currentFns, previousFns, _, _, _, _) -> 
                                 let addedFns = HM.keys $ HM.difference currentFns previousFns
                                 in getFunctionModifiedSimple currentFns previousFns addedFns moduleName) 
                              listOfChanges
@@ -321,11 +331,10 @@ getAllChangesWithCode newFuns oldFuns addedFns
             Nothing -> acc
         ) [] old
         
-    getDeletedDecls new old = HM.foldlWithKey (\acc k oldDecl ->
-        if HM.member k new
-        then acc
-        else acc ++ [(k, getDeclSourceCode oldDecl)]
-        ) [] old
+    getDeletedDecls new old = 
+        -- Find keys that exist in old but not in new
+        let deletedKeys = HM.keys $ HM.difference old new
+        in [(k, getDeclSourceCode decl) | k <- deletedKeys, Just decl <- [HM.lookup k old]]
 
 -- Updated function to create detailed files
 createCodeFiles :: [DetailedChanges] -> IO ()

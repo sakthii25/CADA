@@ -30,24 +30,65 @@ import Data.Text.Encoding
 import Data.Generics.Uniplate.Data ()
 import Control.Reference ((^.), (!~), biplateRef,(^?))
 
+--TODO: NEED TO GET FROM CABAL.PROJECT
+determineNewPath :: String -> String
+determineNewPath filePath
+    | "euler-x" `isInfixOf` filePath = "euler-x/"
+    | "oltp" `isInfixOf` filePath = "oltp/"
+    | "dbTypes" `isInfixOf` filePath = "dbTypes/"
+    | "ecPrelude" `isInfixOf` filePath = "ecPrelude/"
+    | "euler-api-decider" `isInfixOf` filePath = "euler-api-decider/"
+    | "app/alchemist" `isInfixOf` filePath = "app/alchemist/"
+    | "app/provider-platform/dynamic-offer-driver-drainer" `isInfixOf` filePath = "app/provider-platform/dynamic-offer-driver-drainer/"
+    | "app/beckn-cli" `isInfixOf` filePath = "app/beckn-cli/"
+    | "app/provider-platform/dynamic-offer-driver-app/Main" `isInfixOf` filePath = "app/provider-platform/dynamic-offer-driver-app/Main/"
+    | "app/provider-platform/dynamic-offer-driver-app/Allocator" `isInfixOf` filePath = "app/provider-platform/dynamic-offer-driver-app/Allocator/"
+    | "app/rider-platform/rider-app-drainer" `isInfixOf` filePath = "app/rider-platform/rider-app-drainer/"
+    | "app/rider-platform/rider-app/Main" `isInfixOf` filePath = "app/rider-platform/rider-app/Main/"
+    | "app/rider-platform/rider-app/Scheduler" `isInfixOf` filePath = "app/rider-platform/rider-app/Scheduler/"
+    | "app/rider-platform/rider-app/search-result-aggregator" `isInfixOf` filePath = "app/rider-platform/rider-app/search-result-aggregator/"
+    | "app/safety-dashboard" `isInfixOf` filePath = "app/safety-dashboard/"
+    | "app/mocks/sms" `isInfixOf` filePath = "app/mocks/sms/"
+    | "app/mocks/fcm" `isInfixOf` filePath = "app/mocks/fcm/"
+    | "app/dashboard/rider-dashboard" `isInfixOf` filePath = "app/dashboard/rider-dashboard/"
+    | "app/dashboard/provider-dashboard" `isInfixOf` filePath = "app/dashboard/provider-dashboard/"
+    | "app/dashboard/Lib" `isInfixOf` filePath = "app/dashboard/Lib/"
+    | "app/dashboard/CommonAPIs" `isInfixOf` filePath = "app/dashboard/CommonAPIs/"
+    | "app/example-service" `isInfixOf` filePath = "app/example-service/"
+    | "app/special-zone" `isInfixOf` filePath = "app/special-zone/"
+    | "app/sdk-event-pipeline" `isInfixOf` filePath = "app/sdk-event-pipeline/"
+    | "app/mocks/rider-platform" `isInfixOf` filePath = "app/mocks/rider-platform/"
+    | "app/kafka-consumers" `isInfixOf` filePath = "app/kafka-consumers/"
+    | "app/mocks/idfy" `isInfixOf` filePath = "app/mocks/idfy/"
+    | "app/mocks/google" `isInfixOf` filePath = "app/mocks/google/"
+    | "app/rider-platform/public-transport-rider-platform/Main" `isInfixOf` filePath = "app/rider-platform/public-transport-rider-platform/Main/"
+    | "app/rider-platform/public-transport-rider-platform/search-consumer" `isInfixOf` filePath = "app/rider-platform/public-transport-rider-platform/search-consumer/"
+    | "app/mocks/public-transport-provider-platform" `isInfixOf` filePath = "app/mocks/public-transport-provider-platform/"
+    | "app/utils/route-extractor" `isInfixOf` filePath = "app/utils/route-extractor/"
+    | "app/utils/image-api-helper" `isInfixOf` filePath = "app/utils/image-api-helper/"
+    | "lib/beckn-spec" `isInfixOf` filePath = "lib/beckn-spec/"
+    | "lib/beckn-services" `isInfixOf` filePath = "lib/beckn-services/"
+    | "lib/payment" `isInfixOf` filePath = "lib/payment/"
+    | "lib/shared-services" `isInfixOf` filePath = "lib/shared-services/"
+    | "lib/location-updates" `isInfixOf` filePath = "lib/location-updates/"
+    | "lib/special-zone" `isInfixOf` filePath = "lib/special-zone/"
+    | "lib/scheduler" `isInfixOf` filePath = "lib/scheduler/"
+    | "lib/sessionizer-metrics" `isInfixOf` filePath = "lib/sessionizer-metrics/"
+    | "lib/yudhishthira" `isInfixOf` filePath = "lib/yudhishthira/"
+    | "test" `isInfixOf` filePath = "test/"
+    | "lib/producer" `isInfixOf` filePath = "lib/producer/"
+    | "lib/utils" `isInfixOf` filePath = "lib/utils/"
+    | "lib/external" `isInfixOf` filePath = "lib/external/"
+    | "lib/webhook" `isInfixOf` filePath = "lib/webhook/"
+    | otherwise = ""
+
 extractModuleNames :: [FilePath] -> [(String, String)]
 extractModuleNames filePaths =
     filter (\(m, _) -> m /= "NA") (map (\x -> extractModNameAndPath x) filePaths)
     where
         extractModNameAndPath :: FilePath -> (String, String)
         extractModNameAndPath filePath = do
-            let newPath =
-                    if "euler-x" `isInfixOf` filePath 
-                        then "euler-x/" 
-                        else if "oltp" `isInfixOf` filePath 
-                            then "oltp/" 
-                        else if "dbTypes" `isInfixOf` filePath 
-                            then "dbTypes/" 
-                        else if "ecPrelude" `isInfixOf` filePath 
-                            then "ecPrelude/"
-                        else if "euler-api-decider" `isInfixOf` filePath 
-                            then "euler-api-decider/"
-                        else ""
+            let newPath = determineNewPath filePath
             case filePath =~ "src-generated/(.*).hs" :: (String, String, String, [String]) of
                 (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated")
                 _                    ->

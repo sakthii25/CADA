@@ -29,6 +29,19 @@ import Language.Haskell.Tools.PrettyPrint
 import Data.Text.Encoding
 import Data.Generics.Uniplate.Data ()
 import Control.Reference ((^.), (!~), biplateRef,(^?))
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Builder as BB
+import System.IO (IOMode(WriteMode), hSetBuffering, BufferMode(BlockBuffering), hClose, openFile)
+import Control.Concurrent.Async (mapConcurrently)
+
+-- Helper function to write file with proper buffering
+writeFileBuffered :: FilePath -> BL.ByteString -> IO ()
+writeFileBuffered path contents = do
+    handle <- openFile path WriteMode
+    hSetBuffering handle (BlockBuffering (Just 8192)) -- 8KB buffer size
+    BL.hPut handle contents
+    hClose handle
+
 
 --TODO: NEED TO GET FROM CABAL.PROJECT
 determineNewPath :: String -> String
@@ -377,15 +390,13 @@ getAllChangesWithCode newFuns oldFuns addedFns
         let deletedKeys = HM.keys $ HM.difference old new
         in [(k, getDeclSourceCode decl) | k <- deletedKeys, Just decl <- [HM.lookup k old]]
 
--- Updated function to create detailed files
+-- Updated function to create detailed files with optimized writing
 createCodeFiles :: [DetailedChanges] -> IO ()
 createCodeFiles changes = do
-    -- Write the pretty-printed detailed JSON
-    writeFile "all_code_changes.json" 
-        (toString $ encodePretty changes)
+    -- Create all JSON values first (compute once, reuse multiple times)
+    let allChangesJson = encodePretty changes
     
-    -- Create separate files for functions, types, and instances
-    let allFunctionChanges = object [
+    let functionChangesJson = encodePretty $ object [
             T.pack "added" .= concatMap (\c -> map (\(name, code) -> 
                                      object [T.pack "module" .= moduleName c, 
                                             T.pack "name" .= name, 
@@ -404,7 +415,7 @@ createCodeFiles changes = do
                                        (deletedFunctions c)) changes
             ]
         
-    let allTypeChanges = object [
+    let typeChangesJson = encodePretty $ object [
             T.pack "added" .= concatMap (\c -> map (\(name, code) -> 
                                      object [T.pack "module" .= moduleName c, 
                                             T.pack "name" .= name, 
@@ -423,7 +434,7 @@ createCodeFiles changes = do
                                        (deletedTypes c)) changes
             ]
         
-    let allInstanceChanges = object [
+    let instanceChangesJson = encodePretty $ object [
             T.pack "added" .= concatMap (\c -> map (\(name, code) -> 
                                      object [T.pack "module" .= moduleName c, 
                                             T.pack "name" .= name, 
@@ -442,10 +453,20 @@ createCodeFiles changes = do
                                        (deletedInstances c)) changes
             ]
     
-    -- Write separate files for each type
-    writeFile "function_changes.json" (toString $ encodePretty allFunctionChanges)
-    writeFile "type_changes.json" (toString $ encodePretty allTypeChanges)
-    writeFile "instance_changes.json" (toString $ encodePretty allInstanceChanges)
+    -- Write files concurrently
+    mapConcurrently_ (\(filepath, content) -> writeFileBuffered filepath content)
+        [ ("all_code_changes.json", allChangesJson)
+        , ("function_changes.json", functionChangesJson)
+        , ("type_changes.json", typeChangesJson)
+        , ("instance_changes.json", instanceChangesJson)
+        ]
+    
+    where
+        -- Helper function for concurrent writes without collecting results
+        mapConcurrently_ f = void . mapConcurrently f
+
+write :: FilePath -> BL.ByteString -> IO ()
+write path contents = writeFileBuffered path contents
 
 getDeclSourceCode :: Ann AST.UDecl (Dom GhcPs) SrcTemplateStage -> String
 getDeclSourceCode decl = prettyPrint decl

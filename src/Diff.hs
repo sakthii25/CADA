@@ -31,7 +31,7 @@ import Data.Generics.Uniplate.Data ()
 import Control.Reference ((^.), (!~), biplateRef,(^?))
 import Language.Haskell.Tools.AST.Ann
 import SrcLoc (SrcSpan(..), noSrcSpan,srcSpanStartLine,srcSpanStartCol,srcSpanEndLine,srcSpanEndCol,srcSpanFile)
-
+import FastString (unpackFS)
 extractModuleNames :: [FilePath] -> [(String, String)]
 extractModuleNames filePaths =
     filter (\(m, _) -> m /= "NA") (map (\x -> extractModNameAndPath x) filePaths)
@@ -344,7 +344,7 @@ extractLocation x =
                 startCol = srcSpanStartCol realSpan,
                 endLine = srcSpanEndLine realSpan,
                 endCol = srcSpanEndCol realSpan,
-                fileName = show (srcSpanFile realSpan)
+                fileName = unpackFS (srcSpanFile realSpan)
             }
         UnhelpfulSpan _ -> 
             SourceLocation {

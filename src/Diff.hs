@@ -29,6 +29,8 @@ import Language.Haskell.Tools.PrettyPrint
 import Data.Text.Encoding
 import Data.Generics.Uniplate.Data ()
 import Control.Reference ((^.), (!~), biplateRef,(^?))
+import Language.Haskell.Tools.AST.Ann
+import SrcLoc (SrcSpan(..), noSrcSpan,srcSpanStartLine,srcSpanStartCol,srcSpanEndLine,srcSpanEndCol,srcSpanFile)
 
 extractModuleNames :: [FilePath] -> [(String, String)]
 extractModuleNames filePaths =
@@ -132,7 +134,6 @@ traverseOverInstance decl@(Ann _ d) =
     getTypeName (UInstanceHeadParen (Ann _ head')) = getTypeName head'
     getTypeName (UInstanceHeadInfix (Ann _ typ) _) = extractTypeString typ
     getTypeName (UInstanceHeadApp (Ann _ _) (Ann _ typ)) = extractTypeString typ
-    getTypeName _ = "UnknownType"
 
     extractTypeString :: UType (Dom GhcPs) SrcTemplateStage -> String
     extractTypeString (UTyVar (Ann _ (UNormalName (Ann _ (UQualifiedName _ (Ann _ (UNamePart name))))))) = name
@@ -234,6 +235,7 @@ run = do
             
             -- Create code files with detailed changes
             createCodeFiles detailedChanges
+            getGranularChangeForFunctions (map ((\(moduleName, currentFns, previousFns, _, _, _, _) -> (moduleName,currentFns,previousFns) )) listOfChanges)
             
             print "Processing complete. Check output files for details."
             pure ()
@@ -271,6 +273,95 @@ run = do
                             Nothing -> addFunctionModifed acc (FunctionModified [k] [] [] moduleName) ) (FunctionModified [] [] removed moduleName) oldFuns
             y
 
+        getGranularChangeForFunctions :: [(String,(HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage)),HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage))] -> IO ()
+        getGranularChangeForFunctions l = do
+            listOfModifications <- mapM (\(moduleName,old,new) -> pure $ HM.foldlWithKey (\acc k oldDecl ->
+                case HM.lookup k new of
+                    Just newDecl -> if ((show oldDecl) == (show newDecl)) 
+                                then acc 
+                                else acc ++ [(k,compareCalledFunctions oldDecl newDecl)]
+                    Nothing -> acc
+                ) [] old) l
+            writeFile "function_changes_granular.json" (toString $ encodePretty listOfModifications)
+
+        compareCalledFunctions :: Ann UDecl (Dom GhcPs) SrcTemplateStage -> Ann UDecl (Dom GhcPs) SrcTemplateStage -> CalledFunctionChanges
+        compareCalledFunctions oldDecl newDecl =
+            let oldCalls = extractFunctionCalls oldDecl
+                newCalls = extractFunctionCalls newDecl
+                added = [call | call <- newCalls, call `notElem` oldCalls]
+                removed = [call | call <- oldCalls, call `notElem` newCalls]
+            in CalledFunctionChanges {
+                    Diff.added = added,
+                    removed = removed,
+                    old_function_src_loc = getSourceLocation oldDecl,
+                    new_function_src_loc = getSourceLocation newDecl
+                }
+
+        -- | Extract function calls from a declaration
+        extractFunctionCalls :: Ann UDecl (Dom GhcPs) SrcTemplateStage -> [String]
+        extractFunctionCalls decl =
+            let exprs = decl ^? biplateRef :: [Ann UExpr (Dom GhcPs) SrcTemplateStage]
+                calls = concatMap extractCallsFromExpr exprs
+            in nub calls
+
+        -- | Extract function calls from an expression
+        extractCallsFromExpr :: Ann UExpr (Dom GhcPs) SrcTemplateStage -> [String]
+        extractCallsFromExpr (Ann _ expr) = case expr of
+            UVar (Ann _ (UNormalName (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))))) -> [name]
+            UApp func _ -> extractCallsFromExpr func
+            UInfixApp _ op _ -> extractOperatorName op
+            _ -> []
+
+        -- | Extract operator name if possible
+        extractOperatorName :: Ann UOperator (Dom GhcPs) SrcTemplateStage -> [String]
+        extractOperatorName (Ann _ op) = case op of
+            UNormalOp (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))) -> [name]
+            UBacktickOp (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))) -> [name]
+
+data SourceLocation = SourceLocation {
+    startLine :: Int,
+    startCol :: Int,
+    endLine :: Int,
+    endCol :: Int,
+    fileName :: String
+} deriving (Show, Generic)
+
+instance ToJSON SourceLocation
+
+-- | Extract source location from an AST node
+getSourceLocation :: Ann e (Dom GhcPs) SrcTemplateStage -> SourceLocation
+getSourceLocation (Ann annotation _) = 
+    let srcInfo = _sourceInfo annotation
+    in extractLocation srcInfo
+
+-- | Extract location from source span info
+extractLocation :: SpanInfo SrcTemplateStage -> SourceLocation
+extractLocation x = 
+    case getRange x of
+        RealSrcSpan realSpan -> 
+            SourceLocation {
+                startLine = srcSpanStartLine realSpan,
+                startCol = srcSpanStartCol realSpan,
+                endLine = srcSpanEndLine realSpan,
+                endCol = srcSpanEndCol realSpan,
+                fileName = show (srcSpanFile realSpan)
+            }
+        UnhelpfulSpan _ -> 
+            SourceLocation {
+                startLine = 0,
+                startCol = 0,
+                endLine = 0,
+                endCol = 0,
+                fileName = "<unknown>"
+            }
+
+data CalledFunctionChanges = CalledFunctionChanges {
+    added :: [String],
+    removed :: [String],
+    old_function_src_loc :: SourceLocation,
+    new_function_src_loc :: SourceLocation
+    } deriving (Show, Generic)
+instance ToJSON CalledFunctionChanges
 
 -- Enhanced data type to capture all declaration types
 data DetailedChanges = DetailedChanges {

@@ -301,15 +301,25 @@ run = do
         extractFunctionCalls :: Ann UDecl (Dom GhcPs) SrcTemplateStage -> [String]
         extractFunctionCalls decl =
             let exprs = decl ^? biplateRef :: [Ann UExpr (Dom GhcPs) SrcTemplateStage]
+                names = decl ^? biplateRef :: [Ann UName (Dom GhcPs) SrcTemplateStage]
                 calls = concatMap extractCallsFromExpr exprs
-            in nub calls
+            in nub (calls <> (concatMap extractNames names))
+
+        extractNames :: Ann UName (Dom GhcPs) SrcTemplateStage -> [String]
+        extractNames name =
+            case name of           
+                (Ann _ (UNormalName (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))))) -> [name]
+                (Ann _ (UParenName (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))))) -> [name]
+                (Ann _ (UImplicitName (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))))) -> [name]
 
         -- | Extract function calls from an expression
         extractCallsFromExpr :: Ann UExpr (Dom GhcPs) SrcTemplateStage -> [String]
         extractCallsFromExpr (Ann _ expr) = case expr of
             UVar (Ann _ (UNormalName (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))))) -> [name]
-            UApp func _ -> extractCallsFromExpr func
-            UInfixApp _ op _ -> extractOperatorName op
+            UVar (Ann _ (UParenName (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))))) -> [name]
+            UVar (Ann _ (UImplicitName (Ann _ (UQualifiedName _ (Ann _ (UNamePart name)))))) -> [name]
+            UApp func arg -> (extractCallsFromExpr func) <> (extractCallsFromExpr arg)
+            UInfixApp l op r -> (extractOperatorName op) <> (extractCallsFromExpr l) <> (extractCallsFromExpr r)
             _ -> []
 
         -- | Extract operator name if possible

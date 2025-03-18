@@ -275,14 +275,14 @@ run = do
 
         getGranularChangeForFunctions :: [(String,(HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage)),HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage))] -> IO ()
         getGranularChangeForFunctions l = do
-            listOfModifications <- mapM (\(moduleName,old,new) -> pure $ HM.foldlWithKey (\acc k oldDecl ->
+            listOfModifications <- mapM (\(moduleName,old,new) -> pure $ (moduleName,HM.foldlWithKey (\acc k oldDecl ->
                 case HM.lookup k new of
                     Just newDecl -> if ((show oldDecl) == (show newDecl)) 
                                 then acc 
                                 else acc ++ [(k,compareCalledFunctions oldDecl newDecl)]
                     Nothing -> acc
-                ) [] old) l
-            writeFile "function_changes_granular.json" (toString $ encodePretty listOfModifications)
+                ) [] old)) l
+            writeFile "function_changes_granular.json" (toString $ encodePretty $ HM.fromList listOfModifications)
 
         compareCalledFunctions :: Ann UDecl (Dom GhcPs) SrcTemplateStage -> Ann UDecl (Dom GhcPs) SrcTemplateStage -> CalledFunctionChanges
         compareCalledFunctions oldDecl newDecl =

@@ -288,14 +288,26 @@ run = do
         compareCalledFunctions oldDecl newDecl =
             let oldCalls = extractFunctionCalls oldDecl
                 newCalls = extractFunctionCalls newDecl
-                added = [call | call <- newCalls, call `notElem` oldCalls]
-                removed = [call | call <- oldCalls, call `notElem` newCalls]
+                added_functions = [call | call <- newCalls, call `notElem` oldCalls]
+                removed_functions = [call | call <- oldCalls, call `notElem` newCalls]
+                oldlits = extractLiteralsCalls oldDecl
+                newlits = extractLiteralsCalls newDecl
+                added_literals = [call | call <- newlits, call `notElem` oldlits]
+                removed_literals = [call | call <- oldlits, call `notElem` newlits]
             in CalledFunctionChanges {
-                    Diff.added = added,
-                    removed = removed,
+                    added_functions = added_functions,
+                    removed_functions = removed_functions,
+                    added_literals = added_literals,
+                    removed_literals = removed_literals,
                     old_function_src_loc = getSourceLocation oldDecl,
                     new_function_src_loc = getSourceLocation newDecl
                 }
+
+        -- | Extract literals from a declaration
+        extractLiteralsCalls :: Ann UDecl (Dom GhcPs) SrcTemplateStage -> [(String,String)]
+        extractLiteralsCalls decl =
+            let literals = decl ^? biplateRef :: [Ann ULiteral (Dom GhcPs) SrcTemplateStage]
+            in nub ((concatMap extractLiterals literals))
 
         -- | Extract function calls from a declaration
         extractFunctionCalls :: Ann UDecl (Dom GhcPs) SrcTemplateStage -> [String]
@@ -304,6 +316,20 @@ run = do
                 names = decl ^? biplateRef :: [Ann UName (Dom GhcPs) SrcTemplateStage]
                 calls = concatMap extractCallsFromExpr exprs
             in nub (calls <> (concatMap extractNames names))
+
+        extractLiterals :: Ann ULiteral (Dom GhcPs) SrcTemplateStage -> [(String,String)]
+        extractLiterals name =
+            case name of           
+                (Ann _ (UCharLit (lit))) -> [("UCharLit",[lit])]
+                (Ann _ (UStringLit (lit))) -> [("UStringLit",lit)]
+                (Ann _ (UIntLit (lit))) -> [("UIntLit",show lit)]
+                (Ann _ (UFracLit (lit))) -> [("UFracLit",show lit)]
+                (Ann _ (UPrimIntLit (lit))) -> [("UPrimIntLit",show lit)]
+                (Ann _ (UPrimWordLit (lit))) -> [("UPrimWordLit",show lit)]
+                (Ann _ (UPrimFloatLit (lit))) -> [("UPrimFloatLit",show lit)]
+                (Ann _ (UPrimDoubleLit (lit))) -> [("UPrimDoubleLit",show lit)]
+                (Ann _ (UPrimCharLit (lit))) -> [("UPrimCharLit",[lit])]
+                (Ann _ (UPrimStringLit (lit))) -> [("UPrimStringLit",lit)]
 
         extractNames :: Ann UName (Dom GhcPs) SrcTemplateStage -> [String]
         extractNames name =
@@ -366,8 +392,10 @@ extractLocation x =
             }
 
 data CalledFunctionChanges = CalledFunctionChanges {
-    added :: [String],
-    removed :: [String],
+    added_functions :: [String],
+    removed_functions :: [String],
+    added_literals :: [(String,String)],
+    removed_literals :: [(String,String)],
     old_function_src_loc :: SourceLocation,
     new_function_src_loc :: SourceLocation
     } deriving (Show, Generic)

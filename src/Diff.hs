@@ -275,7 +275,7 @@ run = do
 
         getGranularChangeForFunctions :: [(String,(HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage)),HM.HashMap String (Ann AST.UDecl (Dom GhcPs) SrcTemplateStage))] -> IO ()
         getGranularChangeForFunctions l = do
-            listOfModifications <- mapM (\(moduleName,old,new) -> pure $ (moduleName,HM.foldlWithKey (\acc k oldDecl ->
+            listOfModifications <- mapM (\(moduleName,old,new) -> pure $ (moduleName,HM.fromList $ HM.foldlWithKey (\acc k oldDecl ->
                 case HM.lookup k new of
                     Just newDecl -> if ((show oldDecl) == (show newDecl)) 
                                 then acc 

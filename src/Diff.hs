@@ -192,6 +192,19 @@ initGhcFlags = do
            , FunctionalDependencies
            , PartialTypeSignatures
            , ExistentialQuantification
+           , LambdaCase
+           , NoImplicitPrelude
+           , DeriveAnyClass
+           , DerivingStrategies
+           , DuplicateRecordFields
+           , EmptyCase
+           , InstanceSigs
+           , NamedFieldPuns
+           , RecordWildCards
+           , TupleSections
+           , TypeApplications
+           , TypeOperators
+           , UndecidableInstances
            ]
 
 -- Add directories to GHC's search path

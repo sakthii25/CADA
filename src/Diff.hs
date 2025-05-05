@@ -20,7 +20,7 @@ import System.Process
 import Text.Regex.Posix
 import Data.Aeson
 import Data.Aeson.Encode.Pretty
-
+import GHC.Paths (libdir)
 import GHC
 import GHC.Utils.Outputable hiding ((<>))
 import GHC.Driver.Flags
@@ -212,7 +212,7 @@ loadModule workingDir moduleName = do
 
 -- Parse a module using GHC's parser
 parseModuleWithGhc :: String -> String -> IO ParsedModule
-parseModuleWithGhc modulePath moduleName = runGhc (Just modulePath) $ do
+parseModuleWithGhc modulePath moduleName = runGhc (Just libdir) $ do
   modSum <- Diff.loadModule modulePath moduleName
   parseModule modSum
 

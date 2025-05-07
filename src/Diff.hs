@@ -22,6 +22,7 @@ import Data.Aeson
 import Data.Aeson.Encode.Pretty
 import GHC.Paths (libdir)
 import GHC
+import qualified GHC.Driver.Session as GHC
 import GHC.Utils.Outputable hiding ((<>))
 import GHC.Driver.Flags
 import GHC.Driver.Session
@@ -43,9 +44,11 @@ import GHC.Types.Name.Reader
 import GHC.Types.Id
 import GHC.Data.FastString
 import Text.Regex.Posix
-
+import qualified GHC.LanguageExtensions as LangExt
 import Data.Generics.Uniplate.Data ()
 import Control.Reference ((^.), (!~), biplateRef,(^?))
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
 
 -- Data type to represent source locations
 data SourceLocation = SourceLocation {
@@ -119,11 +122,11 @@ getChangedFiles branchName newCommit localPath = do
     pure $ lines result
 
 -- Extract module names from file paths
-extractModuleNames :: [FilePath] -> [(String, String)]
+extractModuleNames :: [FilePath] -> [(String, String, String)]
 extractModuleNames filePaths =
-    filter (\(m, _) -> m /= "NA") (map extractModNameAndPath filePaths)
+    filter (\(m, _,_) -> m /= "NA") (map extractModNameAndPath filePaths)
     where
-        extractModNameAndPath :: FilePath -> (String, String)
+        extractModNameAndPath :: FilePath -> (String, String, String)
         extractModNameAndPath filePath = do
             let newPath =
                     if "euler-x" `isInfixOf` filePath 
@@ -138,74 +141,74 @@ extractModuleNames filePaths =
                             then "euler-api-decider/"
                         else ""
             case filePath =~ ("src-generated/(.*).hs" :: String) :: (String, String, String, [String]) of
-                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated")
+                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated",filePath)
                 _                    ->
                     case filePath =~ (".*/src-generated/(.*).hs" :: String) :: (String, String, String, [String]) of
-                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated")
+                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated",filePath)
                         _                    ->
                             case filePath =~ (".*src/(.*).hs" :: String) :: (String, String, String, [String]) of
-                                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src")
+                                (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src",filePath)
                                 _                    -> 
                                     case filePath =~ (".*src-extras/(.*).hs" :: String) :: (String, String, String, [String]) of
-                                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-extras")
-                                        _                    -> ("NA", "NA")
+                                        (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-extras",filePath)
+                                        _                    -> ("NA", "NA",filePath)
 
 -- Initialize GHC session with appropriate flags
-initGhcFlags :: Ghc ()
+initGhcFlags :: Ghc DynFlags
 initGhcFlags = do
-  dflags <- getSessionDynFlags
-  void $ setSessionDynFlags $ 
-    flip gopt_set Opt_KeepRawTokenStream $
-    flip gopt_set Opt_NoHsMain $
-    foldl' (\acc x -> xopt_set acc x) 
-           (dflags { importPaths = []
-                  , ghcLink = NoLink
-                  , ghcMode = CompManager
-                  , packageFlags = ExposePackage "template-haskell" (PackageArg "template-haskell") (ModRenaming True []) 
-                                 : packageFlags dflags
-                  }) 
-           [ BlockArguments
-           , ConstraintKinds
-           , DataKinds
-           , DeriveDataTypeable
-           , DeriveFoldable
-           , DeriveFunctor
-           , DeriveGeneric
-           , DeriveTraversable
-           , ExplicitForAll
-           , FlexibleContexts
-           , FlexibleInstances
-           , GADTs
-           , GeneralizedNewtypeDeriving
-           , ImplicitPrelude
-           , KindSignatures
-           , MultiParamTypeClasses
-           , OverloadedStrings
-           , RankNTypes
-           , ScopedTypeVariables
-           , TemplateHaskell
-           , TypeFamilies
-           , TypeSynonymInstances
-           , BangPatterns
-           , StandaloneDeriving
-           , EmptyDataDecls
-           , FunctionalDependencies
-           , PartialTypeSignatures
-           , ExistentialQuantification
-           , LambdaCase
+  dflags <- getSessionDynFlags 
+  setSessionDynFlags $ flip gopt_set Opt_KeepRawTokenStream dflags
+  dflags <- getSessionDynFlags 
+  setSessionDynFlags $ flip gopt_set Opt_NoHsMain dflags
+  setSessionDynFlags $ (dflags {  importPaths = [],ghcMode = CompManager,backend = Interpreter,ghcLink = LinkInMemory,language = Just Haskell2010}) 
+  dflags <- getSessionDynFlags 
+  void $ mapM (\x -> do
+          dflags <- getSessionDynFlags 
+          setSessionDynFlags $ xopt_set dflags x 
+        ) [ 
+            BlockArguments
+           , LangExt.ConstraintKinds
+           , LangExt.DataKinds
+           , LangExt.DeriveDataTypeable
+           , LangExt.DeriveFoldable
+           , LangExt.DeriveFunctor
+           , LangExt.DeriveGeneric
+           , LangExt.DeriveTraversable
+           , LangExt.ExplicitForAll
+           , LangExt.FlexibleContexts
+           , LangExt.FlexibleInstances
+           , LangExt.GADTs
+           , LangExt.GeneralizedNewtypeDeriving
+           , LangExt.ImplicitPrelude
+           , LangExt.KindSignatures
+           , LangExt.MultiParamTypeClasses
+           , LangExt.OverloadedStrings
+           , LangExt.RankNTypes
+           , LangExt.ScopedTypeVariables
+           , LangExt.TemplateHaskell
+           , LangExt.TypeFamilies
+           , LangExt.TypeSynonymInstances
+           , LangExt.BangPatterns
+           , LangExt.StandaloneDeriving
+           , LangExt.EmptyDataDecls
+           , LangExt.FunctionalDependencies
+           , LangExt.PartialTypeSignatures
+           , LangExt.ExistentialQuantification
+           , LangExt.LambdaCase
           --  , NoImplicitPrelude
-           , DeriveAnyClass
-           , DerivingStrategies
-           , DuplicateRecordFields
-           , EmptyCase
-           , InstanceSigs
+           , LangExt.DeriveAnyClass
+           , LangExt.DerivingStrategies
+           , LangExt.DuplicateRecordFields
+           , LangExt.EmptyCase
+           , LangExt.InstanceSigs
           --  , NamedFieldPuns
-           , RecordWildCards
-           , TupleSections
-           , TypeApplications
-           , TypeOperators
-           , UndecidableInstances
+           , LangExt.RecordWildCards
+           , LangExt.TupleSections
+           , LangExt.TypeApplications
+           , LangExt.TypeOperators
+           , LangExt.UndecidableInstances
            ]
+  getSessionDynFlags
 
 -- Add directories to GHC's search path
 useDirs :: [FilePath] -> Ghc ()
@@ -225,9 +228,15 @@ loadModule workingDir moduleName = do
 
 -- Parse a module using GHC's parser
 parseModuleWithGhc :: String -> String -> IO ParsedModule
-parseModuleWithGhc modulePath moduleName = runGhc (Just libdir) $ do
-  modSum <- Diff.loadModule modulePath moduleName
-  parseModule modSum
+parseModuleWithGhc modulePath moduleName = 
+  runGhc (Just libdir) $ do
+    hsc_env <- getSession
+    modSum <- Diff.loadModule modulePath moduleName
+    updatedDynFlags <- getSessionDynFlags
+    res <- parseModule (modSum {ms_hspp_opts = updatedDynFlags})
+    hsc_env <- getSession
+    liftIO $ print $ showSDocUnsafe $ ppr $ extensions $ hsc_dflags hsc_env
+    pure res
 
 -- Extract all declarations from a parsed module
 getAllDecls :: ParsedModule -> [LHsDecl GhcPs]
@@ -420,17 +429,33 @@ compareCalledFunctions oldl newl oldDecl newDecl =
 getDeclSourceCode :: (Outputable a) => a -> String
 getDeclSourceCode decl = showSDocUnsafe (ppr decl)
 
+hasTHPragma :: BS.ByteString -> Bool
+hasTHPragma bs = "{-# LANGUAGE TemplateHaskell #-}" `BS.isInfixOf` bs
+
 -- Process modules and track changes
-processModule :: String -> String -> FilePath -> IO (String, Maybe ParsedModule)
-processModule moduleName path localRepoPath = do
+processModule :: Bool -> String -> String -> String -> FilePath -> IO (String, Maybe ParsedModule)
+processModule isTried actualFilePath moduleName path localRepoPath = do
   let filePath = localRepoPath <> path
   result <- try (parseModuleWithGhc filePath moduleName) :: IO (Either SomeException ParsedModule)
   case result of
     Right val -> pure (moduleName, Just val)
     Left err -> do
-      print ("Error Parsing module. Error is " <> show err)
-      appendFile "error.log" (show err <> " " <> show filePath <> " " <> moduleName <> "\n")
-      pure (moduleName, Nothing)
+      if "Perhaps you intended to use TemplateHaskell" `isInfixOf` (show err) && "parse error on input `$'" `isInfixOf` (show err)
+        then 
+          if (not isTried) 
+            then do
+              d <- BS.readFile actualFilePath
+              BS.writeFile actualFilePath (BSC.pack "{-# LANGUAGE TemplateHaskell #-}\n" <> d)
+
+              res <- processModule True actualFilePath moduleName path localRepoPath
+
+              BS.writeFile actualFilePath (d)
+              pure res
+            else pure (moduleName, Nothing)
+        else do
+            print ("Error Parsing module. Error is " <> show err)
+            appendFile "error.log" (show err <> " " <> show filePath <> " " <> moduleName <> "\n")
+            pure (moduleName, Nothing)
 
 -- Helper function to add a function to the modified list
 addFunctionModified :: FunctionModified -> String -> FunctionModified
@@ -615,13 +640,13 @@ run = do
           print ("modified files: " <> show changedFiles)
           
           -- Process modules for previous commit
-          maybePreviousAST <- mapM (\(m, p) -> processModule m p localRepoPath) modifiedModsAndPaths
+          maybePreviousAST <- mapM (\(m, p, fp) -> processModule False fp m p localRepoPath) modifiedModsAndPaths
           
           -- Switch to current commit
           _ <- readProcess "git" ["checkout", currentCommit] ""
           
           -- Process modules for current commit
-          maybeCurrentAST <- mapM (\(m, p) -> processModule m p localRepoPath) modifiedModsAndPaths
+          maybeCurrentAST <- mapM (\(m, p, fp) -> processModule False fp m p localRepoPath) modifiedModsAndPaths
           
           -- Pair up the results
           let listOfAstTuple = zip maybePreviousAST maybeCurrentAST

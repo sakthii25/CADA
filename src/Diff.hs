@@ -193,13 +193,13 @@ initGhcFlags = do
            , PartialTypeSignatures
            , ExistentialQuantification
            , LambdaCase
-           , NoImplicitPrelude
+          --  , NoImplicitPrelude
            , DeriveAnyClass
            , DerivingStrategies
            , DuplicateRecordFields
            , EmptyCase
            , InstanceSigs
-           , NamedFieldPuns
+          --  , NamedFieldPuns
            , RecordWildCards
            , TupleSections
            , TypeApplications

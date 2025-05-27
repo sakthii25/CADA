@@ -6,7 +6,7 @@ module Diff where
 import Control.Exception
 import Control.Monad
 import qualified Data.HashMap.Strict as HM
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (catMaybes,mapMaybe,fromMaybe)
 import Data.List
 import qualified Data.Text as T
 import Data.Text (Text)
@@ -49,6 +49,11 @@ import Data.Generics.Uniplate.Data ()
 import Control.Reference ((^.), (!~), biplateRef,(^?))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
+import System.Directory (doesDirectoryExist, listDirectory)
+import System.FilePath ((</>), takeExtension)
+import System.FilePath ((</>), takeDirectory, takeExtension,takeBaseName)
+import Control.Monad (filterM, forM)
+import Control.Applicative ((<|>))
 
 -- Data type to represent source locations
 data SourceLocation = SourceLocation {
@@ -121,9 +126,27 @@ getChangedFiles branchName newCommit localPath = do
     result <- readProcess "git" ["diff", "--name-only", (T.unpack $ T.stripEnd (T.pack commit)), newCommit] ""
     pure $ lines result
 
+findCabalFiles :: FilePath -> IO [FilePath]
+findCabalFiles dir = do
+    contents <- listDirectory dir
+    let paths = map (dir </>) contents
+    dirs <- filterM doesDirectoryExist paths
+    files <- filterM (\p -> return (takeExtension p == ".cabal")) paths
+    nested <- concat <$> mapM findCabalFiles dirs
+    return (files ++ nested)
+
+generateProjectRoots :: [FilePath] -> [(FilePath, String)]
+generateProjectRoots cabalPaths =
+    map (\path -> (dropPrefix (takeDirectory path) ++ "/", takeBaseName path)) cabalPaths
+  where
+    dropPrefix :: FilePath -> FilePath
+    dropPrefix p = case stripPrefix "./" p of
+        Just rest -> rest
+        Nothing -> p
+
 -- Extract module names from file paths
-extractModuleNames :: [FilePath] -> [(String, String, String)]
-extractModuleNames filePaths =
+extractModuleNames :: [(FilePath, String)] -> [FilePath] -> [(String, String, String)]
+extractModuleNames projectRoots filePaths =
     filter (\(m, _,_) -> m /= "NA") (map extractModNameAndPath filePaths)
     where
         extractModNameAndPath :: FilePath -> (String, String, String)
@@ -139,7 +162,9 @@ extractModuleNames filePaths =
                             then "ecPrelude/"
                         else if "euler-api-decider" `isInfixOf` filePath 
                             then "euler-api-decider/"
-                        else ""
+                        else 
+                            let res = catMaybes $ map (\(x,y) -> if y `isInfixOf` filePath then Just x else Nothing) projectRoots
+                            in if length res > 0 then (head res) else ""
             case filePath =~ ("src-generated/(.*).hs" :: String) :: (String, String, String, [String]) of
                 (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-generated",filePath)
                 _                    ->
@@ -153,7 +178,6 @@ extractModuleNames filePaths =
                                         (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-extras",filePath)
                                         _                    -> ("NA", "NA",filePath)
 
--- Initialize GHC session with appropriate flags
 initGhcFlags :: Ghc DynFlags
 initGhcFlags = do
   dflags <- getSessionDynFlags 
@@ -201,12 +225,21 @@ initGhcFlags = do
            , LangExt.DuplicateRecordFields
            , LangExt.EmptyCase
            , LangExt.InstanceSigs
+           , LangExt.PatternSynonyms
+           , LangExt.QuasiQuotes
           --  , NamedFieldPuns
            , LangExt.RecordWildCards
            , LangExt.TupleSections
            , LangExt.TypeApplications
            , LangExt.TypeOperators
            , LangExt.UndecidableInstances
+           , LangExt.AllowAmbiguousTypes
+           , LangExt.DefaultSignatures
+        --    , LangExt.NamedFieldPuns
+        --    , LangExt.NoImplicitPrelude
+        --    , LangExt.NoMonomorphismRestriction
+           , LangExt.OverloadedLabels
+           , LangExt.PolyKinds
            ]
   getSessionDynFlags
 
@@ -235,7 +268,6 @@ parseModuleWithGhc modulePath moduleName =
     updatedDynFlags <- getSessionDynFlags
     res <- parseModule (modSum {ms_hspp_opts = updatedDynFlags})
     hsc_env <- getSession
-    liftIO $ print $ showSDocUnsafe $ ppr $ extensions $ hsc_dflags hsc_env
     pure res
 
 -- Extract all declarations from a parsed module
@@ -635,8 +667,9 @@ run = do
   case x of
       [repoUrl, localRepoPath, branchName, currentCommit, path] -> do
           cloneRepo repoUrl localRepoPath
+          cabalpaths <- findCabalFiles localRepoPath
           changedFiles <- getChangedFiles branchName currentCommit localRepoPath
-          let modifiedModsAndPaths = extractModuleNames changedFiles
+          let modifiedModsAndPaths = extractModuleNames (generateProjectRoots cabalpaths) changedFiles
           print ("modified files: " <> show changedFiles)
           
           -- Process modules for previous commit

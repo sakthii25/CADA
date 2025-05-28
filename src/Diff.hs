@@ -178,97 +178,94 @@ extractModuleNames projectRoots filePaths =
                                         (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-extras",filePath)
                                         _                    -> ("NA", "NA",filePath)
 
-initGhcFlags :: Ghc DynFlags
-initGhcFlags = do
-  dflags <- getSessionDynFlags 
-  setSessionDynFlags $ flip gopt_set Opt_KeepRawTokenStream dflags
-  dflags <- getSessionDynFlags 
-  setSessionDynFlags $ flip gopt_set Opt_NoHsMain dflags
-  setSessionDynFlags $ (dflags {  importPaths = [],ghcMode = CompManager,backend = Interpreter,ghcLink = LinkInMemory,language = Just Haskell2010}) 
-  dflags <- getSessionDynFlags 
-  void $ mapM (\x -> do
-          dflags <- getSessionDynFlags 
-          setSessionDynFlags $ xopt_set dflags x 
-        ) [ 
-            BlockArguments
-           , LangExt.ConstraintKinds
-           , LangExt.DataKinds
-           , LangExt.DeriveDataTypeable
-           , LangExt.DeriveFoldable
-           , LangExt.DeriveFunctor
-           , LangExt.DeriveGeneric
-           , LangExt.DeriveTraversable
-           , LangExt.ExplicitForAll
-           , LangExt.FlexibleContexts
-           , LangExt.FlexibleInstances
-           , LangExt.GADTs
-           , LangExt.GeneralizedNewtypeDeriving
-           , LangExt.ImplicitPrelude
-           , LangExt.KindSignatures
-           , LangExt.MultiParamTypeClasses
-           , LangExt.OverloadedStrings
-           , LangExt.RankNTypes
-           , LangExt.ScopedTypeVariables
-           , LangExt.TemplateHaskell
-           , LangExt.TypeFamilies
-           , LangExt.TypeSynonymInstances
-           , LangExt.BangPatterns
-           , LangExt.StandaloneDeriving
-           , LangExt.EmptyDataDecls
-           , LangExt.FunctionalDependencies
-           , LangExt.PartialTypeSignatures
-           , LangExt.ExistentialQuantification
-           , LangExt.LambdaCase
-          --  , NoImplicitPrelude
-           , LangExt.DeriveAnyClass
-           , LangExt.DerivingStrategies
-           , LangExt.DuplicateRecordFields
-           , LangExt.EmptyCase
-           , LangExt.InstanceSigs
-           , LangExt.PatternSynonyms
-           , LangExt.QuasiQuotes
-          --  , NamedFieldPuns
-           , LangExt.RecordWildCards
-           , LangExt.TupleSections
-           , LangExt.TypeApplications
-           , LangExt.TypeOperators
-           , LangExt.UndecidableInstances
-           , LangExt.AllowAmbiguousTypes
-           , LangExt.DefaultSignatures
-        --    , LangExt.NamedFieldPuns
-        --    , LangExt.NoImplicitPrelude
-        --    , LangExt.NoMonomorphismRestriction
-           , LangExt.OverloadedLabels
-           , LangExt.PolyKinds
-           ]
-  getSessionDynFlags
+initGhcFlags :: Ghc DynFlags 
+initGhcFlags = do   
+    dflags <- getSessionDynFlags    
+    
+    -- Set all extensions FIRST, before other modifications
+    let enabledExtensions = [
+            LangExt.BlockArguments            
+            , LangExt.ConstraintKinds            
+            , LangExt.DataKinds            
+            , LangExt.DeriveDataTypeable            
+            , LangExt.DeriveFoldable            
+            , LangExt.DeriveFunctor            
+            , LangExt.DeriveGeneric            
+            , LangExt.DeriveTraversable            
+            , LangExt.ExplicitForAll            
+            , LangExt.FlexibleContexts            
+            , LangExt.FlexibleInstances            
+            , LangExt.GADTs            
+            , LangExt.GeneralizedNewtypeDeriving            
+            , LangExt.ImplicitPrelude            
+            , LangExt.KindSignatures            
+            , LangExt.MultiParamTypeClasses            
+            , LangExt.OverloadedStrings            
+            , LangExt.RankNTypes            
+            , LangExt.ScopedTypeVariables            
+            , LangExt.TemplateHaskell
+            , LangExt.TypeFamilies            
+            , LangExt.TypeSynonymInstances            
+            , LangExt.BangPatterns            
+            , LangExt.StandaloneDeriving            
+            , LangExt.EmptyDataDecls            
+            , LangExt.FunctionalDependencies            
+            , LangExt.PartialTypeSignatures            
+            , LangExt.ExistentialQuantification            
+            , LangExt.LambdaCase           
+            , LangExt.DeriveAnyClass            
+            , LangExt.DerivingStrategies            
+            , LangExt.DuplicateRecordFields            
+            , LangExt.EmptyCase            
+            , LangExt.InstanceSigs            
+            , LangExt.PatternSynonyms            
+            , LangExt.QuasiQuotes           
+            , LangExt.RecordWildCards            
+            , LangExt.TupleSections            
+            , LangExt.TypeApplications            
+            , LangExt.TypeOperators            
+            , LangExt.UndecidableInstances            
+            , LangExt.AllowAmbiguousTypes            
+            , LangExt.DefaultSignatures         
+            , LangExt.OverloadedLabels            
+            , LangExt.PolyKinds            
+          ]
+    
+    -- Enable all extensions at once
+    let dflagsWithExtensions = foldl xopt_set dflags enabledExtensions
+    
+    -- Now set other flags
+    let finalDflags = dflagsWithExtensions {  
+        importPaths = [],
+        ghcMode = CompManager,
+        backend = Interpreter,
+        ghcLink = LinkInMemory,
+        language = Just Haskell2010
+    }
+    
+    -- Set other GHC options
+    let finalDflagsWithOpts = finalDflags 
+            `gopt_set` Opt_KeepRawTokenStream
+            `gopt_set` Opt_NoHsMain
+    
+    setSessionDynFlags finalDflagsWithOpts
+    getSessionDynFlags
 
--- Add directories to GHC's search path
 useDirs :: [FilePath] -> Ghc ()
 useDirs workingDirs = do
   dynflags <- getSessionDynFlags
   void $ setSessionDynFlags dynflags { importPaths = importPaths dynflags ++ workingDirs }
 
--- Load a module using GHC API
-loadModule :: FilePath -> String -> Ghc ModSummary
-loadModule workingDir moduleName = do
-  initGhcFlags
-  useDirs [workingDir]
-  target <- guessTarget moduleName Nothing
-  setTargets [target]
-  void $ load (LoadUpTo $ mkModuleName moduleName)
-  getModSummary $ mkModuleName moduleName
+parseModuleComplete modulePath moduleName = 
+    runGhc (Just libdir) $ do
+        initGhcFlags
+        useDirs [modulePath]
+        target <- guessTarget moduleName Nothing
+        setTargets [target]
+        void $ load LoadAllTargets  -- This processes language pragmas
+        modSum <- getModSummary $ mkModuleName moduleName
+        parseModule modSum
 
--- Parse a module using GHC's parser
-parseModuleWithGhc :: String -> String -> IO ParsedModule
-parseModuleWithGhc modulePath moduleName = 
-  runGhc (Just libdir) $ do
-    hsc_env <- getSession
-    modSum <- Diff.loadModule modulePath moduleName
-    updatedDynFlags <- getSessionDynFlags
-    res <- parseModule (modSum {ms_hspp_opts = updatedDynFlags})
-    hsc_env <- getSession
-    pure res
 
 -- Extract all declarations from a parsed module
 getAllDecls :: ParsedModule -> [LHsDecl GhcPs]
@@ -465,29 +462,33 @@ hasTHPragma :: BS.ByteString -> Bool
 hasTHPragma bs = "{-# LANGUAGE TemplateHaskell #-}" `BS.isInfixOf` bs
 
 -- Process modules and track changes
-processModule :: Bool -> String -> String -> String -> FilePath -> IO (String, Maybe ParsedModule)
-processModule isTried actualFilePath moduleName path localRepoPath = do
+processModuleSafe :: Bool -> String -> String -> String -> FilePath -> IO (String, Maybe ParsedModule, Bool)
+processModuleSafe isTried actualFilePath moduleName path localRepoPath = do
   let filePath = localRepoPath <> path
-  result <- try (parseModuleWithGhc filePath moduleName) :: IO (Either SomeException ParsedModule)
-  case result of
-    Right val -> pure (moduleName, Just val)
-    Left err -> do
-      if "Perhaps you intended to use TemplateHaskell" `isInfixOf` (show err) && "parse error on input `$'" `isInfixOf` (show err)
-        then 
-          if (not isTried) 
-            then do
-              d <- BS.readFile actualFilePath
-              BS.writeFile actualFilePath (BSC.pack "{-# LANGUAGE TemplateHaskell #-}\n" <> d)
-
-              res <- processModule True actualFilePath moduleName path localRepoPath
-
-              BS.writeFile actualFilePath (d)
-              pure res
-            else pure (moduleName, Nothing)
-        else do
-            print ("Error Parsing module. Error is " <> show err)
-            appendFile "error.log" (show err <> " " <> show filePath <> " " <> moduleName <> "\n")
-            pure (moduleName, Nothing)
+  -- First check if the file actually exists
+  fileExists <- doesFileExist actualFilePath
+  if not fileExists
+    then pure (moduleName, Nothing, False) -- (moduleName, result, fileExists)
+    else do
+      result <- try (parseModuleComplete filePath moduleName) :: IO (Either SomeException ParsedModule)
+      case result of
+        Right val -> pure (moduleName, Just val, True)
+        Left err -> do
+          appendFile "error.log" (show err <> " " <> show filePath <> " " <> moduleName <> "\n")
+          if "Perhaps you intended to use TemplateHaskell" `isInfixOf` (show err) && "parse error on input `$'" `isInfixOf` (show err)
+            then 
+              if (not isTried) 
+                then do
+                  d <- BS.readFile actualFilePath
+                  BS.writeFile actualFilePath (BSC.pack "{-# LANGUAGE TemplateHaskell #-}\n" <> d)
+                  (modName, res, exists) <- processModuleSafe True actualFilePath moduleName path localRepoPath
+                  BS.writeFile actualFilePath (d)
+                  pure (modName, res, exists)
+                else pure (moduleName, Nothing, True) -- File exists but couldn't parse
+            else do
+                print ("Error Parsing module. Error is " <> show err)
+                appendFile "error.log" (show err <> " " <> show filePath <> " " <> moduleName <> "\n")
+                pure (moduleName, Nothing, True) -- File exists but couldn't parse
 
 -- Helper function to add a function to the modified list
 addFunctionModified :: FunctionModified -> String -> FunctionModified
@@ -673,77 +674,119 @@ run = do
           print ("modified files: " <> show changedFiles)
           
           -- Process modules for previous commit
-          maybePreviousAST <- mapM (\(m, p, fp) -> processModule False fp m p localRepoPath) modifiedModsAndPaths
+          maybePreviousAST <- mapM (\(m, p, fp) -> processModuleSafe False fp m p localRepoPath) modifiedModsAndPaths
           
           -- Switch to current commit
           _ <- readProcess "git" ["checkout", currentCommit] ""
           
           -- Process modules for current commit
-          maybeCurrentAST <- mapM (\(m, p, fp) -> processModule False fp m p localRepoPath) modifiedModsAndPaths
+          maybeCurrentAST <- mapM (\(m, p, fp) -> processModuleSafe False fp m p localRepoPath) modifiedModsAndPaths
           
-          -- Pair up the results
+          -- Pair up the results and separate into different categories
           let listOfAstTuple = zip maybePreviousAST maybeCurrentAST
           
-          -- Process differences for functions, types, and instances
-          listOfChanges <- mapM (\((moduleName, mPreviousAST), (_, mCurrentAST)) -> do
-                                  let currentFunctions = maybe HM.empty 
-                                                      (HM.fromList . getAllFunctions) 
-                                                      mCurrentAST
-                                      previousFunctions = maybe HM.empty 
+          -- Separate modules into categories
+          let (newModules, deletedModules, modifiedModules) = partitionModules listOfAstTuple
+          
+          -- Handle completely new modules (entire module as "added")
+          newModuleChanges <- mapM (\(moduleName, Just ast) -> 
+                                   pure $ getEntireModuleAsChanges moduleName ast True) newModules
+          
+          -- Handle completely deleted modules (entire module as "deleted")  
+          deletedModuleChanges <- mapM (\(moduleName, Just ast) -> 
+                                       pure $ getEntireModuleAsChanges moduleName ast False) deletedModules
+          
+          -- Handle modified modules (existing logic)
+          modifiedChanges <- mapM (\((moduleName, mPreviousAST), (_, mCurrentAST)) -> do
+                                    let currentFunctions = maybe HM.empty 
                                                         (HM.fromList . getAllFunctions) 
-                                                        mPreviousAST
-                                      currentTypes = maybe HM.empty 
-                                                   (HM.fromList . getAllTypeDecls) 
-                                                   mCurrentAST
-                                      previousTypes = maybe HM.empty 
-                                                    (HM.fromList . getAllTypeDecls) 
-                                                    mPreviousAST
-                                      currentInstances = maybe HM.empty 
-                                                       (HM.fromList . getAllInstances) 
-                                                       mCurrentAST
-                                      previousInstances = maybe HM.empty 
-                                                        (HM.fromList . getAllInstances) 
-                                                        mPreviousAST
-                                  pure $ (moduleName, 
-                                      currentFunctions, 
-                                      previousFunctions,
-                                      currentTypes,
-                                      previousTypes,
-                                      currentInstances,
-                                      previousInstances)) 
-                               listOfAstTuple
-              
-          -- Process function changes for funs_modified.json
-          let addedFunctions = map (\(moduleName, currentFns, previousFns, _, _, _, _) -> 
-                                  let addedFns = HM.keys $ HM.difference currentFns previousFns
-                                  in getFunctionModifiedSimple currentFns previousFns addedFns moduleName)
-                              listOfChanges
-              
-          let result = BLU.toString $ encodePretty addedFunctions
+                                                        mCurrentAST
+                                        previousFunctions = maybe HM.empty 
+                                                          (HM.fromList . getAllFunctions) 
+                                                          mPreviousAST
+                                        currentTypes = maybe HM.empty 
+                                                     (HM.fromList . getAllTypeDecls) 
+                                                     mCurrentAST
+                                        previousTypes = maybe HM.empty 
+                                                      (HM.fromList . getAllTypeDecls) 
+                                                      mPreviousAST
+                                        currentInstances = maybe HM.empty 
+                                                         (HM.fromList . getAllInstances) 
+                                                         mCurrentAST
+                                        previousInstances = maybe HM.empty 
+                                                          (HM.fromList . getAllInstances) 
+                                                          mPreviousAST
+                                        addedFns = HM.keys $ HM.difference currentFunctions previousFunctions
+                                        addedTypes = HM.keys $ HM.difference currentTypes previousTypes
+                                        addedInsts = HM.keys $ HM.difference currentInstances previousInstances
+                                    pure $ getAllChangesWithCode 
+                                        currentFunctions previousFunctions addedFns
+                                        currentTypes previousTypes addedTypes
+                                        currentInstances previousInstances addedInsts
+                                        moduleName) 
+                             modifiedModules
           
-          -- Write original results file
-          writeFile "funs_modified.json" result
+          -- Combine all changes
+          let allDetailedChanges = newModuleChanges ++ deletedModuleChanges ++ modifiedChanges
           
-          -- Process detailed changes for all declaration types
-          let detailedChanges = map (\(moduleName, currentFns, previousFns, currentTypes, previousTypes, currentInsts, previousInsts) -> 
-                                  let addedFns = HM.keys $ HM.difference currentFns previousFns
-                                      addedTypes = HM.keys $ HM.difference currentTypes previousTypes
-                                      addedInsts = HM.keys $ HM.difference currentInsts previousInsts
-                                  in getAllChangesWithCode 
-                                      currentFns previousFns addedFns
-                                      currentTypes previousTypes addedTypes
-                                      currentInsts previousInsts addedInsts
-                                      moduleName) 
-                               listOfChanges
+          -- Create output files
+          createCodeFiles allDetailedChanges
           
-          -- Create code files with detailed changes
-          createCodeFiles detailedChanges
+          -- Also create the original function modification summary
+          let functionModifications = map (\changes -> 
+                                        let addedFns = map fst (addedFunctions changes)
+                                            modifiedFns = map (\(name, _, _) -> name) (modifiedFunctions changes)
+                                            deletedFns = map fst (deletedFunctions changes)
+                                        in FunctionModified deletedFns modifiedFns addedFns (Diff.moduleName changes))
+                                    allDetailedChanges
           
-          -- Get granular changes for functions
-          getGranularChangeForFunctions (map (\(moduleName, currentFns, previousFns, _, _, _, _) -> 
-                                           (moduleName, currentFns, previousFns)) 
-                                       listOfChanges)
+          writeFile "funs_modified.json" (BLU.toString $ encodePretty functionModifications)
           
           print "Processing complete. Check output files for details."
           pure ()
       _ -> fail $ "Can't proceed. Please pass all the arguments in the order of repoUrl localPath oldCommit newCommit path but got: " <> show x
+
+partitionModules :: [((String, Maybe ParsedModule, Bool), (String, Maybe ParsedModule, Bool))] 
+                 -> ([(String, Maybe ParsedModule)], [(String, Maybe ParsedModule)], [((String, Maybe ParsedModule), (String, Maybe ParsedModule))])
+partitionModules astTuples = 
+  let newModules = [(name, ast) | ((_, Nothing, False), (name, ast, True)) <- astTuples]
+      deletedModules = [(name, ast) | ((name, ast, True), (_, Nothing, False)) <- astTuples]
+      modifiedModules = [((oldName, oldAst), (newName, newAst)) | 
+                        ((oldName, oldAst, True), (newName, newAst, True)) <- astTuples]
+  in (newModules, deletedModules, modifiedModules)
+
+getEntireModuleAsChanges :: String -> ParsedModule -> Bool -> DetailedChanges
+getEntireModuleAsChanges moduleName pmod isAdded =
+  let functions = getAllFunctions pmod
+      types = getAllTypeDecls pmod
+      instances = getAllInstances pmod
+      
+      functionData = [(name, getDeclSourceCode decl) | (name, decl) <- functions]
+      typeData = [(name, getDeclSourceCode decl) | (name, decl) <- types]
+      instanceData = [(name, getDeclSourceCode decl) | (name, decl) <- instances]
+  in
+  if isAdded
+    then DetailedChanges {
+        Diff.moduleName = moduleName,
+        addedFunctions = functionData,
+        modifiedFunctions = [],
+        deletedFunctions = [],
+        addedTypes = typeData,
+        modifiedTypes = [],
+        deletedTypes = [],
+        addedInstances = instanceData,
+        modifiedInstances = [],
+        deletedInstances = []
+    }
+    else DetailedChanges {
+        Diff.moduleName = moduleName,
+        addedFunctions = [],
+        modifiedFunctions = [],
+        deletedFunctions = functionData,
+        addedTypes = [],
+        modifiedTypes = [],
+        deletedTypes = typeData,
+        addedInstances = [],
+        modifiedInstances = [],
+        deletedInstances = instanceData
+    }

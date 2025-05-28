@@ -178,97 +178,94 @@ extractModuleNames projectRoots filePaths =
                                         (_, _, _, [modName]) -> (map (\c -> if c == '/' then '.' else c) modName, newPath ++ "src-extras",filePath)
                                         _                    -> ("NA", "NA",filePath)
 
-initGhcFlags :: Ghc DynFlags
-initGhcFlags = do
-  dflags <- getSessionDynFlags 
-  setSessionDynFlags $ flip gopt_set Opt_KeepRawTokenStream dflags
-  dflags <- getSessionDynFlags 
-  setSessionDynFlags $ flip gopt_set Opt_NoHsMain dflags
-  setSessionDynFlags $ (dflags {  importPaths = [],ghcMode = CompManager,backend = Interpreter,ghcLink = LinkInMemory,language = Just Haskell2010}) 
-  dflags <- getSessionDynFlags 
-  void $ mapM (\x -> do
-          dflags <- getSessionDynFlags 
-          setSessionDynFlags $ xopt_set dflags x 
-        ) [ 
-            BlockArguments
-           , LangExt.ConstraintKinds
-           , LangExt.DataKinds
-           , LangExt.DeriveDataTypeable
-           , LangExt.DeriveFoldable
-           , LangExt.DeriveFunctor
-           , LangExt.DeriveGeneric
-           , LangExt.DeriveTraversable
-           , LangExt.ExplicitForAll
-           , LangExt.FlexibleContexts
-           , LangExt.FlexibleInstances
-           , LangExt.GADTs
-           , LangExt.GeneralizedNewtypeDeriving
-           , LangExt.ImplicitPrelude
-           , LangExt.KindSignatures
-           , LangExt.MultiParamTypeClasses
-           , LangExt.OverloadedStrings
-           , LangExt.RankNTypes
-           , LangExt.ScopedTypeVariables
-           , LangExt.TemplateHaskell
-           , LangExt.TypeFamilies
-           , LangExt.TypeSynonymInstances
-           , LangExt.BangPatterns
-           , LangExt.StandaloneDeriving
-           , LangExt.EmptyDataDecls
-           , LangExt.FunctionalDependencies
-           , LangExt.PartialTypeSignatures
-           , LangExt.ExistentialQuantification
-           , LangExt.LambdaCase
-          --  , NoImplicitPrelude
-           , LangExt.DeriveAnyClass
-           , LangExt.DerivingStrategies
-           , LangExt.DuplicateRecordFields
-           , LangExt.EmptyCase
-           , LangExt.InstanceSigs
-           , LangExt.PatternSynonyms
-           , LangExt.QuasiQuotes
-          --  , NamedFieldPuns
-           , LangExt.RecordWildCards
-           , LangExt.TupleSections
-           , LangExt.TypeApplications
-           , LangExt.TypeOperators
-           , LangExt.UndecidableInstances
-           , LangExt.AllowAmbiguousTypes
-           , LangExt.DefaultSignatures
-        --    , LangExt.NamedFieldPuns
-        --    , LangExt.NoImplicitPrelude
-        --    , LangExt.NoMonomorphismRestriction
-           , LangExt.OverloadedLabels
-           , LangExt.PolyKinds
-           ]
-  getSessionDynFlags
+initGhcFlags :: Ghc DynFlags 
+initGhcFlags = do   
+    dflags <- getSessionDynFlags    
+    
+    -- Set all extensions FIRST, before other modifications
+    let enabledExtensions = [
+            LangExt.BlockArguments            
+            , LangExt.ConstraintKinds            
+            , LangExt.DataKinds            
+            , LangExt.DeriveDataTypeable            
+            , LangExt.DeriveFoldable            
+            , LangExt.DeriveFunctor            
+            , LangExt.DeriveGeneric            
+            , LangExt.DeriveTraversable            
+            , LangExt.ExplicitForAll            
+            , LangExt.FlexibleContexts            
+            , LangExt.FlexibleInstances            
+            , LangExt.GADTs            
+            , LangExt.GeneralizedNewtypeDeriving            
+            , LangExt.ImplicitPrelude            
+            , LangExt.KindSignatures            
+            , LangExt.MultiParamTypeClasses            
+            , LangExt.OverloadedStrings            
+            , LangExt.RankNTypes            
+            , LangExt.ScopedTypeVariables            
+            , LangExt.TemplateHaskell
+            , LangExt.TypeFamilies            
+            , LangExt.TypeSynonymInstances            
+            , LangExt.BangPatterns            
+            , LangExt.StandaloneDeriving            
+            , LangExt.EmptyDataDecls            
+            , LangExt.FunctionalDependencies            
+            , LangExt.PartialTypeSignatures            
+            , LangExt.ExistentialQuantification            
+            , LangExt.LambdaCase           
+            , LangExt.DeriveAnyClass            
+            , LangExt.DerivingStrategies            
+            , LangExt.DuplicateRecordFields            
+            , LangExt.EmptyCase            
+            , LangExt.InstanceSigs            
+            , LangExt.PatternSynonyms            
+            , LangExt.QuasiQuotes           
+            , LangExt.RecordWildCards            
+            , LangExt.TupleSections            
+            , LangExt.TypeApplications            
+            , LangExt.TypeOperators            
+            , LangExt.UndecidableInstances            
+            , LangExt.AllowAmbiguousTypes            
+            , LangExt.DefaultSignatures         
+            , LangExt.OverloadedLabels            
+            , LangExt.PolyKinds            
+          ]
+    
+    -- Enable all extensions at once
+    let dflagsWithExtensions = foldl xopt_set dflags enabledExtensions
+    
+    -- Now set other flags
+    let finalDflags = dflagsWithExtensions {  
+        importPaths = [],
+        ghcMode = CompManager,
+        backend = Interpreter,
+        ghcLink = LinkInMemory,
+        language = Just Haskell2010
+    }
+    
+    -- Set other GHC options
+    let finalDflagsWithOpts = finalDflags 
+            `gopt_set` Opt_KeepRawTokenStream
+            `gopt_set` Opt_NoHsMain
+    
+    setSessionDynFlags finalDflagsWithOpts
+    getSessionDynFlags
 
--- Add directories to GHC's search path
 useDirs :: [FilePath] -> Ghc ()
 useDirs workingDirs = do
   dynflags <- getSessionDynFlags
   void $ setSessionDynFlags dynflags { importPaths = importPaths dynflags ++ workingDirs }
 
--- Load a module using GHC API
-loadModule :: FilePath -> String -> Ghc ModSummary
-loadModule workingDir moduleName = do
-  initGhcFlags
-  useDirs [workingDir]
-  target <- guessTarget moduleName Nothing
-  setTargets [target]
-  void $ load (LoadUpTo $ mkModuleName moduleName)
-  getModSummary $ mkModuleName moduleName
+parseModuleComplete modulePath moduleName = 
+    runGhc (Just libdir) $ do
+        initGhcFlags
+        useDirs [modulePath]
+        target <- guessTarget moduleName Nothing
+        setTargets [target]
+        void $ load LoadAllTargets  -- This processes language pragmas
+        modSum <- getModSummary $ mkModuleName moduleName
+        parseModule modSum
 
--- Parse a module using GHC's parser
-parseModuleWithGhc :: String -> String -> IO ParsedModule
-parseModuleWithGhc modulePath moduleName = 
-  runGhc (Just libdir) $ do
-    hsc_env <- getSession
-    modSum <- Diff.loadModule modulePath moduleName
-    updatedDynFlags <- getSessionDynFlags
-    res <- parseModule (modSum {ms_hspp_opts = updatedDynFlags})
-    hsc_env <- getSession
-    pure res
 
 -- Extract all declarations from a parsed module
 getAllDecls :: ParsedModule -> [LHsDecl GhcPs]
@@ -468,7 +465,7 @@ hasTHPragma bs = "{-# LANGUAGE TemplateHaskell #-}" `BS.isInfixOf` bs
 processModule :: Bool -> String -> String -> String -> FilePath -> IO (String, Maybe ParsedModule)
 processModule isTried actualFilePath moduleName path localRepoPath = do
   let filePath = localRepoPath <> path
-  result <- try (parseModuleWithGhc filePath moduleName) :: IO (Either SomeException ParsedModule)
+  result <- try (parseModuleComplete filePath moduleName) :: IO (Either SomeException ParsedModule)
   case result of
     Right val -> pure (moduleName, Just val)
     Left err -> do
